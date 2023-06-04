@@ -49,6 +49,10 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
 ;; OP functions 
 
 () subscribe(slice sender_addr, int query_id, slice msg_body_content) inline {
+    ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
+    force_chain(WORKCHAIN_ID, sender_addr);
+
+    ;; prepare Subscription contract stateinit
     var state_init = begin_cell()
         .store_ref(storage::subscription_code)
         .store_ref(begin_cell()
@@ -60,6 +64,7 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
     var msg_body = begin_cell()
         .store_uint(op::init, 32)
         .store_uint(query_id, 64)
+        .store_slice(sender_addr)
     .end_cell();
     var msg = begin_cell()
         .store_uint(0x18, 6)

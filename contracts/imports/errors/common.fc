@@ -1,2 +1,3 @@
 ;; Common error codes
+const int error::invalid_workchain = 110;
 const int error::unknown_op = 0xffff;

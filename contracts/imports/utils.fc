@@ -3,3 +3,8 @@ builder calculate_address_from_stateinit(int wc, cell state_init) {
         .store_uint(wc, 32)
         .store_slice(cell_hash(state_init));
 }
+
+() force_chain(int wc, slice address) {
+    (int address_wc, _) = parse_std_addr(address);
+    throw_if(error::invalid_workchain, address_wc != wc);
+}
