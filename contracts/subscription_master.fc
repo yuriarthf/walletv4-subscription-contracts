@@ -32,6 +32,10 @@ cell assemble_subscription_data(slice owner_addr) {
     .end_cell();
 }
 
+builder assemble_subscription_init_content() {
+
+}
+
 slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
     var state_init = assemble_stateinit(code, assemble_subscription_data(owner_addr));
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
@@ -70,7 +74,7 @@ slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
     var msg_body = begin_cell()
         .store_uint(op::init, 32)
         .store_uint(query_id, 64)
-        .store_slice(sender_addr);
+        .store_builder(assemble_subscription_init_content());
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
