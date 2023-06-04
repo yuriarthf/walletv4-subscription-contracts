@@ -1,6 +1,7 @@
 #include "imports/stdlib.fc";
 #include "imports/op_codes/subscription_master.fc";
 #include "imports/errors/subscription_master.fc";
+#include "imports/utils.fc";
 
 ;; storage variables
 
@@ -29,8 +30,27 @@ global cell storage::subscription_code;
     .end_cell());
 }
 
-() subscribe(int query_id, slice msg_body_content) inline {
+() subscribe(slice sender_addr, int query_id, slice msg_body_content) inline {
+    var state_init = begin_cell()
+        .store_ref(storage::subscription_code)
+        .store_ref(begin_cell()
+            .store_uint(storage::next_idx, 256)
+        .end_cell())
+    .end_cell();
+    storage::next_idx += 1;
 
+    var msg_body = begin_cell()
+    .end_cell();
+    var msg = begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(calculate_address_from_stateinit(0, state_init))
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(msg_body)
+    .end_cell();
+
+    send_raw_message(msg, 64);
 }
 
 ;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
@@ -41,7 +61,7 @@ global cell storage::subscription_code;
 
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
-    if (flags & 1) { ;; ignore all bounced messages
+    if (flags & 1) { ;; ignore all bounced messages (just receive excedents)
         return ();
     }
 
@@ -51,7 +71,8 @@ global cell storage::subscription_code;
     int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
 
     if (op == op::subscribe) {
-        subscribe(query_id, in_msg_body);
+        subscribe(cs~load_msg_addr(), query_id, in_msg_body);
+        save_data();
     }
 
     throw(errors::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
