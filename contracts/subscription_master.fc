@@ -20,7 +20,7 @@ const int WORKCHAIN_ID = 0;
 
 ;; Auxiliary functions
 
-cell calculate_address_from_index(int wc, cell code, int idx) {
+slice calculate_address_from_index(int wc, cell code, int idx) {
     var state_init = begin_cell()
         .store_ref(code)
         .store_ref(begin_cell()
