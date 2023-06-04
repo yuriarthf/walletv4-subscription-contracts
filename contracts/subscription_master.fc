@@ -94,9 +94,19 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
 
     if (op == op::subscribe) {
         subscribe(cs~load_msg_addr(), query_id, in_msg_body);
+        return ();
     }
 
     throw(error::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
+}
+
+(int, slice, cell) get_subscription_master_data() method_id {
+    load_data();
+    return (
+        storage::next_idx,
+        storage::subscription_manager,
+        storage::subscription_code
+    );
 }
 
 slice get_subscription_for_idx(int idx) method_id {
