@@ -75,7 +75,7 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
         .store_coins(0)
-        .store_uint(2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
         .store_builder(msg_body)
     .end_cell();
