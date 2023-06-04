@@ -8,6 +8,7 @@
 ;; subscription_manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
 ;;      - Request payments from Subscriptions and change minor settings in it.
+;; subscription_code: Code cell of the Subscription contract to be minted by the user
 global int storage::next_idx;
 global slice storage::subscription_manager;
 global cell storage::subscription_code;
