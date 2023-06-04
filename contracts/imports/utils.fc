@@ -1,6 +1,5 @@
-slice calculate_address_from_stateinit(int wc, cell state_init) {
+builder calculate_address_from_stateinit(int wc, cell state_init) {
     return begin_cell()
         .store_uint(wc, 32)
-        .store_slice(cell_hash(state_init))
-    .end_cell();
+        .store_slice(cell_hash(state_init));
 }

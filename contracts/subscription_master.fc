@@ -15,6 +15,21 @@ global int storage::next_idx;
 global slice storage::subscription_manager;
 global cell storage::subscription_code;
 
+;; Constants
+const int WORKCHAIN_ID = 0;
+
+;; Auxiliary functions
+
+cell calculate_address_from_index(int wc, cell code, int idx) {
+    var state_init = begin_cell()
+        .store_ref(code)
+        .store_ref(begin_cell()
+            .store_uint(idx, 256)
+        .end_cell())
+    .end_cell().begin_parse();
+}
+
+;; Storage (C4) manipulation functions
 
 () load_data() inline {
     var ds = get_data();
@@ -31,6 +46,8 @@ global cell storage::subscription_code;
     .end_cell());
 }
 
+;; OP functions 
+
 () subscribe(slice sender_addr, int query_id, slice msg_body_content) inline {
     var state_init = begin_cell()
         .store_ref(storage::subscription_code)
@@ -46,7 +63,7 @@ global cell storage::subscription_code;
     .end_cell();
     var msg = begin_cell()
         .store_uint(0x18, 6)
-        .store_slice(calculate_address_from_stateinit(0, state_init))
+        .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
         .store_coins(0)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(state_init)
@@ -80,4 +97,10 @@ global cell storage::subscription_code;
     }
 
     throw(errors::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
+}
+
+slice get_subscription_for_idx(int idx) method_id {
+    load_data();
+    throw_unless(error::out_of_bounds, idx < storage::next_idx);
+    return calculate_address_from_index(WORKCHAIN_ID, storage::subscription_code, idx);
 }

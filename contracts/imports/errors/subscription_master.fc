@@ -1,1 +1,4 @@
 #include "common.fc";
+
+;; SubscriptionMaster error codes
+const int error::out_of_bounds = 101;
