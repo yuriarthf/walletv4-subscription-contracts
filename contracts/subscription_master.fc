@@ -96,7 +96,7 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
         subscribe(cs~load_msg_addr(), query_id, in_msg_body);
     }
 
-    throw(errors::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
+    throw(error::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
 }
 
 slice get_subscription_for_idx(int idx) method_id {
