@@ -11,12 +11,12 @@
 
 ;; Storage variables
 
-;; next_idx: Next index of the subscription to be minted
+;; subscription_number: Number of subscriptions
 ;; subscription_manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
 ;;      - Request payments from Subscriptions and change minor settings in it.
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
-global int storage::next_idx;
+global int storage::subscription_number;
 global slice storage::subscription_manager;
 global cell storage::subscription_code;
 
@@ -25,15 +25,15 @@ const int WORKCHAIN_ID = 0;
 
 ;; Auxiliary functions
 
-cell assemble_subscription_data(int idx) {
+cell assemble_subscription_data(slice owner_addr) {
     return begin_cell()
-            .store_slice(my_address())
-            .store_uint(idx, 256)
+        .store_slice(my_address())
+        .store_slice(owner_addr)
     .end_cell();
 }
 
-slice calculate_address_from_index(int wc, cell code, int idx) {
-    var state_init = assemble_stateinit(code, assemble_subscription_data(idx));
+slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
+    var state_init = assemble_stateinit(code, assemble_subscription_data(owner_addr));
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
 
@@ -41,14 +41,14 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
 
 () load_data() inline {
     var ds = get_data();
-    storage::next_idx = ds~load_uint(256);
+    storage::subscription_number = ds~load_uint(256);
     storage::subscription_manager = ds~load_msg_addr();
     storage::subscription_code = ds~load_ref();
 }
 
 () save_data() inline {
     set_data(begin_cell()
-        .store_uint(storage::next_idx, 256)
+        .store_uint(storage::subscription_number, 256)
         .store_slice(storage::subscription_manager)
         .store_ref(storage::subscription_code)
     .end_cell());
@@ -63,9 +63,9 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
     ;; prepare Subscription contract stateinit
     var state_init = assemble_stateinit(
         storage::subscription_code,
-        assemble_subscription_data(storage::next_idx)
+        assemble_subscription_data(sender_addr)
     );
-    storage::next_idx += 1;
+    storage::subscription_number += 1;
 
     var msg_body = begin_cell()
         .store_uint(op::init, 32)
@@ -113,14 +113,14 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
 (int, slice, cell) get_subscription_master_data() method_id {
     load_data();
     return (
-        storage::next_idx,
+        storage::subscription_number,
         storage::subscription_manager,
         storage::subscription_code
     );
 }
 
-slice get_subscription_for_idx(int idx) method_id {
+slice get_user_subscription(slice user_addr) method_id {
+    force_chain(WORKCHAIN_ID, user_addr);
     load_data();
-    throw_unless(error::out_of_bounds, idx < storage::next_idx);
-    return calculate_address_from_index(WORKCHAIN_ID, storage::subscription_code, idx);
+    return calculate_address_from_address(WORKCHAIN_ID, storage::subscription_code, user_addr);
 }
