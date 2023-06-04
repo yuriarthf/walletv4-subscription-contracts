@@ -1,0 +1,2 @@
+;; Common error codes
+const int error::unknown_op = 0xffff;

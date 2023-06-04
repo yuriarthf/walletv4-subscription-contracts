@@ -1,0 +1,57 @@
+#include "imports/stdlib.fc";
+#include "imports/op_codes/subscription_master.fc";
+#include "imports/errors/subscription_master.fc";
+
+;; storage variables
+
+;; next_idx: Next index of the subscription to be minted
+;; subscription_manager:
+;;      - Change configurations of the SubscriptionMaster contract;
+;;      - Request payments from Subscriptions and change minor settings in it.
+global int storage::next_idx;
+global slice storage::subscription_manager;
+global cell storage::subscription_code;
+
+
+() load_data() inline {
+    var ds = get_data();
+    storage::next_idx = ds~load_uint(256);
+    storage::subscription_manager = ds~load_msg_addr();
+    storage::subscription_code = ds~load_ref();
+}
+
+() save_data() inline {
+    set_data(begin_cell()
+        .store_uint(storage::next_idx, 256)
+        .store_slice(storage::subscription_manager)
+        .store_ref(storage::subscription_code)
+    .end_cell());
+}
+
+() subscribe(int query_id, slice msg_body_content) inline {
+
+}
+
+;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; receive ton transfers (simple transfer without message)
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+
+    load_data(); ;; load storage variables
+
+    int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
+    int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
+
+    if (op == op::subscribe) {
+        subscribe(query_id, in_msg_body);
+    }
+
+    throw(errors::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
+}

@@ -1,22 +1,21 @@
 import { toNano } from 'ton-core';
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
-import { NetworkProvider } from '@ton-community/blueprint';
+import { compile, NetworkProvider } from '@ton-community/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const subscriptionMaster = provider.open(await SubscriptionMaster.fromInit(BigInt(Math.floor(Math.random() * 10000))));
-
-    await subscriptionMaster.send(
-        provider.sender(),
-        {
-            value: toNano('0.05'),
-        },
-        {
-            $$type: 'Deploy',
-            queryId: 0n,
-        }
+    const subscriptionMaster = provider.open(
+        SubscriptionMaster.createFromConfig(
+            {
+                id: Math.floor(Math.random() * 10000),
+                counter: 0,
+            },
+            await compile('SubscriptionMaster')
+        )
     );
+
+    await subscriptionMaster.sendDeploy(provider.sender(), toNano('0.05'));
 
     await provider.waitForDeploy(subscriptionMaster.address);
 
-    console.log('ID', await subscriptionMaster.getId());
+    console.log('ID', await subscriptionMaster.getID());
 }

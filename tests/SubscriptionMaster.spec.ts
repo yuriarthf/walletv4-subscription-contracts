@@ -1,29 +1,35 @@
 import { Blockchain, SandboxContract } from '@ton-community/sandbox';
-import { toNano } from 'ton-core';
+import { Cell, toNano } from 'ton-core';
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import '@ton-community/test-utils';
+import { compile } from '@ton-community/blueprint';
 
 describe('SubscriptionMaster', () => {
+    let code: Cell;
+
+    beforeAll(async () => {
+        code = await compile('SubscriptionMaster');
+    });
+
     let blockchain: Blockchain;
     let subscriptionMaster: SandboxContract<SubscriptionMaster>;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        subscriptionMaster = blockchain.openContract(await SubscriptionMaster.fromInit(0n));
+        subscriptionMaster = blockchain.openContract(
+            SubscriptionMaster.createFromConfig(
+                {
+                    id: 0,
+                    counter: 0,
+                },
+                code
+            )
+        );
 
         const deployer = await blockchain.treasury('deployer');
 
-        const deployResult = await subscriptionMaster.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
-            {
-                $$type: 'Deploy',
-                queryId: 0n,
-            }
-        );
+        const deployResult = await subscriptionMaster.sendDeploy(deployer.getSender(), toNano('0.05'));
 
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
@@ -49,21 +55,14 @@ describe('SubscriptionMaster', () => {
 
             console.log('counter before increasing', counterBefore);
 
-            const increaseBy = BigInt(Math.floor(Math.random() * 100));
+            const increaseBy = Math.floor(Math.random() * 100);
 
             console.log('increasing by', increaseBy);
 
-            const increaseResult = await subscriptionMaster.send(
-                increaser.getSender(),
-                {
-                    value: toNano('0.05'),
-                },
-                {
-                    $$type: 'Add',
-                    queryId: 0n,
-                    amount: increaseBy,
-                }
-            );
+            const increaseResult = await subscriptionMaster.sendIncrease(increaser.getSender(), {
+                increaseBy,
+                value: toNano('0.05'),
+            });
 
             expect(increaseResult.transactions).toHaveTransaction({
                 from: increaser.address,

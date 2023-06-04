@@ -12,21 +12,14 @@ export async function run(provider: NetworkProvider, args: string[]) {
         return;
     }
 
-    const subscriptionMaster = provider.open(SubscriptionMaster.fromAddress(address));
+    const subscriptionMaster = provider.open(SubscriptionMaster.createFromAddress(address));
 
     const counterBefore = await subscriptionMaster.getCounter();
 
-    await subscriptionMaster.send(
-        provider.sender(),
-        {
-            value: toNano('0.05'),
-        },
-        {
-            $$type: 'Add',
-            queryId: 0n,
-            amount: 1n,
-        }
-    );
+    await subscriptionMaster.sendIncrease(provider.sender(), {
+        increaseBy: 1,
+        value: toNano('0.05'),
+    });
 
     ui.write('Waiting for counter to increase...');
 

@@ -1,4 +1,4 @@
-# Agora Contracts
+# agora-contracts
 
 ## Project structure
 
