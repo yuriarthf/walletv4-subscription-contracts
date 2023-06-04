@@ -54,6 +54,8 @@ global cell storage::subscription_code;
     .end_cell();
 
     send_raw_message(msg, 64);
+
+    save_data();
 }
 
 ;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
@@ -75,7 +77,6 @@ global cell storage::subscription_code;
 
     if (op == op::subscribe) {
         subscribe(cs~load_msg_addr(), query_id, in_msg_body);
-        save_data();
     }
 
     throw(errors::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
