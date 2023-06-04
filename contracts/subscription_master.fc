@@ -4,7 +4,12 @@
 #include "imports/errors/subscription_master.fc";
 #include "imports/utils.fc";
 
-;; storage variables
+
+;; Title: Agora Subscription Master
+;; Author: Yuri Fernandes (0xyuri.ton)
+;; Description: Deploys subscription contracts for a specific TAM (Tokenized AI Model)
+
+;; Storage variables
 
 ;; next_idx: Next index of the subscription to be minted
 ;; subscription_manager:
