@@ -1,5 +1,15 @@
+cell assemble_stateinit(cell code, cell data) {
+    return begin_cell()
+        .store_uint(0, 2)
+        .store_ref(code)
+        .store_ref(data)
+        .store_uint(0, 1)
+    .end_cell();
+}
+
 builder calculate_address_from_stateinit(int wc, cell state_init) {
     return begin_cell()
+        .store_uint(4, 3)
         .store_uint(wc, 32)
         .store_slice(cell_hash(state_init));
 }

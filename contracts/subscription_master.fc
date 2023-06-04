@@ -20,13 +20,16 @@ const int WORKCHAIN_ID = 0;
 
 ;; Auxiliary functions
 
-slice calculate_address_from_index(int wc, cell code, int idx) {
-    var state_init = begin_cell()
-        .store_ref(code)
-        .store_ref(begin_cell()
+cell assemble_subscription_data(int idx) {
+    return begin_cell()
+            .store_slice(my_address())
             .store_uint(idx, 256)
-        .end_cell())
-    .end_cell().begin_parse();
+    .end_cell();
+}
+
+slice calculate_address_from_index(int wc, cell code, int idx) {
+    var state_init = assemble_stateinit(code, assemble_subscription_data(idx));
+    return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
 
 ;; Storage (C4) manipulation functions
@@ -53,26 +56,23 @@ slice calculate_address_from_index(int wc, cell code, int idx) {
     force_chain(WORKCHAIN_ID, sender_addr);
 
     ;; prepare Subscription contract stateinit
-    var state_init = begin_cell()
-        .store_ref(storage::subscription_code)
-        .store_ref(begin_cell()
-            .store_uint(storage::next_idx, 256)
-        .end_cell())
-    .end_cell();
+    var state_init = assemble_stateinit(
+        storage::subscription_code,
+        assemble_subscription_data(storage::next_idx)
+    );
     storage::next_idx += 1;
 
     var msg_body = begin_cell()
         .store_uint(op::init, 32)
         .store_uint(query_id, 64)
-        .store_slice(sender_addr)
-    .end_cell();
+        .store_slice(sender_addr);
     var msg = begin_cell()
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
         .store_coins(0)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_ref(state_init)
-        .store_ref(msg_body)
+        .store_builder(msg_body)
     .end_cell();
 
     send_raw_message(msg, 64);
