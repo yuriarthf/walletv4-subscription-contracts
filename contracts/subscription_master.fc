@@ -1,5 +1,6 @@
 #include "imports/stdlib.fc";
 #include "imports/op_codes/subscription_master.fc";
+#include "imports/op_codes/subscription.fc";
 #include "imports/errors/subscription_master.fc";
 #include "imports/utils.fc";
 
@@ -40,6 +41,8 @@ global cell storage::subscription_code;
     storage::next_idx += 1;
 
     var msg_body = begin_cell()
+        .store_uint(op::init, 32)
+        .store_uint(query_id, 64)
     .end_cell();
     var msg = begin_cell()
         .store_uint(0x18, 6)

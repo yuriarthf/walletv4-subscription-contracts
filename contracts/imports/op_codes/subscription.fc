@@ -1,0 +1,2 @@
+;; Subscription OP Codes
+const int op::init = "op::init"c;
