@@ -38,11 +38,12 @@ cell assemble_subscription_data(slice owner_addr) {
 
 builder assemble_subscription_init_content() {
     return begin_cell()
+        .store_slice(storage::subscription_manager)
         .store_coins(storage::subscription_fee)
         .store_uint(storage::fee_period, 32);
 }
 
-slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
+slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     var state_init = assemble_stateinit(code, assemble_subscription_data(owner_addr));
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
@@ -105,19 +106,43 @@ slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
     storage::subscription_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
 
+    reply(query_id, sender_addr);
+
+    save_data();
+}
+
+() change_manager(slice sender_addr, int query_id, slice msg_body_content) inline {
+    throw_unless(error::not_admin, sender_addr == storage::subscription_manager);
+
+    storage::subscription_manager = msg_body_content~load_msg_addr();
+
+    reply(query_id, sender_addr);
+    
+    save_data();
+}
+
+() update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) inline {
+    throw_unless(error::not_admin, sender_addr == storage::subscription_manager);
+
+    slice owner_addr = msg_body_content~load_msg_addr();
+    slice subscription_addr = calculate_subscription_address(
+        WORKCHAIN_ID,
+        storage::subscription_code,
+        owner_addr
+    );
+
     var msg_body = begin_cell()
-        .store_uint(op::excesses, 32)
-        .store_uint(query_id, 64);
+        .store_uint(op::update_authority, 32)
+        .store_uint(query_id, 64)
+        .store_slice(storage::subscription_manager);
     var msg = begin_cell()
         .store_uint(0x18, 6)
-        .store_slice(sender_addr)
+        .store_slice(subscription_addr)
         .store_coins(0)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_builder(msg_body)
     .end_cell();
     send_raw_message(msg, 64);
-
-    save_data();
 }
 
 ;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
@@ -148,6 +173,16 @@ slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
         return ();
     }
 
+    if (op == op::change_manager) {
+        change_manager(sender_addr, query_id, in_msg_body);
+        return ();
+    }
+
+    if (op == op::update_subscription_authority) {
+        update_subscription_authority(sender_addr, query_id, msg_body_content);
+        return ();
+    }
+
     throw(error::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
 }
 
@@ -165,5 +200,5 @@ slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
 slice get_user_subscription(slice user_addr) method_id {
     force_chain(WORKCHAIN_ID, user_addr);
     load_data();
-    return calculate_address_from_address(WORKCHAIN_ID, storage::subscription_code, user_addr);
+    return calculate_subscription_address(WORKCHAIN_ID, storage::subscription_code, user_addr);
 }

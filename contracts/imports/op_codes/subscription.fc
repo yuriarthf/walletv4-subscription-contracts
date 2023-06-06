@@ -1,4 +1,5 @@
 #include "common.fc";
 
 ;; Subscription OP Codes
-const int op::init = "op::init"c;
+const int op::init = "op::init"c & 0x7fffffff;
+const int op::update_authority = "op::update_authority"c & 0x7fffffff;
