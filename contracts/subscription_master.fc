@@ -15,6 +15,8 @@
 ;; subscription_manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
 ;;      - Request payments from Subscriptions and change minor settings in it.
+;; subscription_fee: Fee to be substract by the user periodically
+;; fee_period: Fee payment interval (in seconds)
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
 global int storage::subscription_number;
 global slice storage::subscription_manager;
@@ -102,6 +104,7 @@ slice calculate_address_from_address(int wc, cell code, slice owner_addr) {
 
     storage::subscription_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
+
     var msg_body = begin_cell()
         .store_uint(op::excesses, 32)
         .store_uint(query_id, 64);
