@@ -1,0 +1,2 @@
+;; Common op codes
+const int op::excesses = 0x553276db | 0x80000000;
