@@ -20,9 +20,9 @@
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
 global int storage::subscription_number;
 global slice storage::subscription_manager;
-global cell storage::subscription_code;
 global int storage::subscription_fee;
 global int storage::fee_period;
+global cell storage::subscription_code;
 
 ;; Constants
 const int WORKCHAIN_ID = 0;
