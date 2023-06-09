@@ -1,5 +1,6 @@
 #include "imports/stdlib.fc";
 #include "imports/op_codes/subscription.fc";
+#include "imports/op_codes/walletv4.fc";
 #include "imports/errors/subscription.fc";
 #include "imports/utils.fc";
 
@@ -15,11 +16,25 @@ global slice storage::owner;
 global slice storage::manager;
 global int storage::fee;
 global int storage::period;
+global int storage::last_paid;
+global int storage::activated?;
 
 ;; Constants
 const int MIN_TON_RESERVE = 50000000;
 
 ;; Auxiliary functions
+() assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(storage::owner)
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_builder(begin_cell()
+            .store_uint(op::request_funds, 32)
+            .store_uint(query_id, 64)
+            .store_coins(toncoins))
+    .end_cell();
+}
 
 ;; Storage (C4) manipulation functions
 () load_init_data() inline {
@@ -33,9 +48,11 @@ const int MIN_TON_RESERVE = 50000000;
     var ds = get_data();
     storage::subscription_master = ds~load_msg_addr();
     storage::owner = ds~load_msg_addr();
+    throw_if(error::init_false, ds.slice_empty?());
     storage::manager = ds~load_msg_addr();
     storage::fee = ds~load_coins();
     storage::period = ds~load_uint(32);
+    storage::last_paid = ds~load_uint(32);
 }
 
 () save_data() inline {
@@ -45,6 +62,8 @@ const int MIN_TON_RESERVE = 50000000;
         .store_slice(storage::manager)
         .store_coins(storage::fee)
         .store_uint(storage::period, 32)
+        .store_uint(storage::last_paid, 32)
+        .store_uint(storage::activated?, 1)
     .end_cell());
 }
 
@@ -56,10 +75,59 @@ const int MIN_TON_RESERVE = 50000000;
     storage::manager = msg_body_content~load_msg_addr();
     storage::fee = msg_body_content~load_coins();
     storage::period = msg_body_content~load_uint(32);
+    storage::last_paid = now();
+    storage::activated? = false;
 
     raw_reserve(MIN_TON_RESERVE, 0);
 
     reply(query_id, sender_addr);
+
+    save_data();
+}
+
+() activate(slice sender_addr, int query_id) inline {
+    throw_unless(error::not_owner, sender_addr == storage::owner);
+    throw_if(error::activated, storage::activated?);
+
+    storage::activated? = true;
+
+    save_data();
+}
+
+() deactivate(slice sender_addr, int query_id) inline {
+    throw_unless(error::not_owner, sender_addr == storage::owner);
+    throw_unless(error::not_activated, storage::activated?);
+
+    storage::activated? = false;
+
+    save_data();
+}
+
+() update_authority(slice sender_addr, int query_id, slice msg_body_content) inline {
+    throw_unless(error::not_master, sender_addr == storage::subscription_master);
+
+    slice new_manager = msg_body_content~load_msg_addr();
+    throw_if(error::no_storage_change, new_manager == storage::manager);
+
+    storage::manager = new_manager;
+
+    reply(query_id, sender_addr);
+
+    save_data();
+}
+
+() request_payment(slice sender_addr, int query_id, slice msg_body_content) inline {
+    throw_unless(error::not_admin, sender_addr == storage::manager);
+    throw_unless(error::not_activated, storage::activated?);
+    throw_unless(error::fee_period, now() - storage::last_paid >= storage::period);
+
+    ;; adjust `last_paid` to the beginning of the period interval
+    storage::last_paid = now() / storage::period * storage::period;
+
+    ;; Ignore the case that more than one period has passed, it's responsibility of the
+    ;; service to execute payment requests in time.
+    ;; Allow only Toncoin payments (pass empty extra dict)
+    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, empty_dict()), 64);
 
     save_data();
 }
@@ -86,7 +154,27 @@ const int MIN_TON_RESERVE = 50000000;
         return ();
     }
 
-    ;;load_data(); ;; load storage variables
+    load_data(); ;; load storage variables
+
+    if (op == op::activate_subscription) {
+        activate(sender_addr, query_id);
+        return ();
+    }
+
+    if (op == op::deactivate_subscription) {
+        deactivate(sender_addr, query_id);
+        return ();
+    }
+
+    if (op == op::update_authority) {
+        update_authority(sender_addr, query_id, in_msg_body);
+        return ();
+    }
+
+    if (op == op::request_payment) {
+        request_payment(sender_addr, query_id, in_msg_body);
+        return ();
+    }
 
     throw(error::unknown_op);
 }

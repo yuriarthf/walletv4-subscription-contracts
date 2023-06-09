@@ -3,3 +3,6 @@
 ;; Subscription OP Codes
 const int op::init = "op::init"c & 0x7fffffff;
 const int op::update_authority = "op::update_authority"c & 0x7fffffff;
+const int op::activate_subscription = 0x6e6f7465;
+const int op::deactivate_subscription = 0x64737472;
+const int op::request_payment = "op::request_payment"c & 0x7fffffff;
