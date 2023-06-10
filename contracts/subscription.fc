@@ -24,6 +24,10 @@ global int storage::activated?;
 const int MIN_TON_RESERVE = 50000000;
 
 ;; Auxiliary functions
+int payment_due?() inline {
+    return now() - storage::last_paid >= storage::period;
+}
+
 cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     return begin_cell()
         .store_uint(0x18, 6)
@@ -148,10 +152,10 @@ cell assemble_collect_fee_msg(int query_id) inline {
 () request_payment(slice sender_addr, int query_id, slice msg_body_content) inline {
     throw_unless(error::not_admin, sender_addr == storage::manager);
     throw_unless(error::not_activated, storage::activated?);
-    throw_unless(error::fee_period, now() - storage::last_paid >= storage::period);
+    throw_unless(error::fee_period, payment_due?());
 
     ;; adjust `last_paid` to the beginning of the period interval
-    storage::last_paid = now() / storage::period * storage::period;
+    storage::last_paid = (now() - storage::last_paid) / storage::period * storage::period + storage::last_paid;
 
     ;; Ignore the case that more than one period has passed, it's responsibility of the
     ;; service to execute payment requests in time.
@@ -220,6 +224,31 @@ cell assemble_collect_fee_msg(int query_id) inline {
         storage::last_paid,
         storage::activated?
     );
+}
+
+int get_subscription_master() method_id {
+    load_data();
+    return storage::subscription_master;
+}
+
+int get_subscriber() method_id {
+    load_data();
+    return storage::owner;
+}
+
+(int, int, int, int) get_fee_info() method_id {
+    load_data();
+    return (
+        storage::activation_fee
+        storage::fee,
+        storage::last_paid,
+        storage::period
+    );
+}
+
+int is_payment_due() method_id {
+    load_data();
+    return payment_due?();
 }
 
 int is_activated() method_id {
