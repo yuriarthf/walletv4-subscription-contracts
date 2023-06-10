@@ -15,12 +15,14 @@
 ;; subscription_manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
 ;;      - Request payments from Subscriptions and change minor settings in it.
-;; subscription_fee: Fee to be substract by the user periodically
+;; subscription_fee: Fee paid by the user on subscription
+;; periodic_fee: Fee to be substract by the user periodically
 ;; fee_period: Fee payment interval (in seconds)
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
 global int storage::subscription_number;
 global slice storage::subscription_manager;
 global int storage::subscription_fee;
+global int storage::periodic_fee;
 global int storage::fee_period;
 global cell storage::subscription_code;
 
@@ -36,16 +38,63 @@ cell assemble_subscription_data(slice owner_addr) {
     .end_cell();
 }
 
-builder assemble_subscription_init_content() {
-    return begin_cell()
-        .store_slice(storage::subscription_manager)
-        .store_coins(storage::subscription_fee)
-        .store_uint(storage::fee_period, 32);
-}
-
 slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     var state_init = assemble_stateinit(code, assemble_subscription_data(owner_addr));
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
+}
+
+cell assemble_deploy_and_init_msg(int query_id, cell state_init) inline {
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
+        .store_coins(0)
+        .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_uint(op::init, 32)
+        .store_uint(query_id, 64)
+        .store_slice(storage::subscription_manager)
+        .store_coins(storage::periodic_fee)
+        .store_uint(storage::fee_period, 32)
+        .store_builder(assemble_subscription_init_content())
+    .end_cell();
+}
+
+cell assemble_collect_fee_msg(slice subscriber_addr, int query_id, int msg_value) inline {
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(storage::subscription_manager)
+        .store_coins(msg_value)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(op::agora_fee_transfer, 32)
+        .store_uint(query_id, 64)
+        .store_slice(subscriber_addr)
+    .end_cell();
+}
+
+cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline {
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(subscription_addr)
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(op::update_authority, 32)
+        .store_uint(query_id, 64)
+        .store_slice(storage::subscription_manager)
+    .end_cell();
+}
+
+;; Internal Messages
+() send_deploy_init_msg(int query_id, cell state_init) inline {
+    send_raw_message(assemble_deploy_and_init_msg(query_id, state_init), 64);
+}
+
+() collect_subscription_fee(slice subscriber_addr, int query_id, int msg_value) inline {
+    throw_if(error::insufficient_funds, msg_value < storage::subscription_fee);
+    send_raw_message(assemble_collect_fee_msg(subscriber_addr, query_id, storage::subscription_fee), 1);
+}
+
+() send_update_subscription_authority_msg(int query_id, slice subscription_addr) inline {
+    send_raw_message(assemble_update_authority_msg(query_id, subscription_addr), 64);
 }
 
 ;; Storage (C4) manipulation functions
@@ -55,6 +104,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     storage::subscription_number = ds~load_uint(256);
     storage::subscription_manager = ds~load_msg_addr();
     storage::subscription_fee = ds~load_coins();
+    storage::periodic_fee = ds~load_coins();
     storage::fee_period = ds~load_uint(32);
     storage::subscription_code = ds~load_ref();
 }
@@ -64,6 +114,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
         .store_uint(storage::subscription_number, 256)
         .store_slice(storage::subscription_manager)
         .store_coins(storage::subscription_fee)
+        .store_coins(storage::periodic_fee)
         .store_uint(storage::fee_period, 32)
         .store_ref(storage::subscription_code)
     .end_cell());
@@ -71,9 +122,12 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
 
 ;; OP functions 
 
-() subscribe(slice sender_addr, int query_id, slice msg_body_content) inline {
+() subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) inline {
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
     force_chain(WORKCHAIN_ID, sender_addr);
+
+    ;; collect subscription fee from new user
+    collect_subscription_fee(sender_addr, query_id, msg_value);
 
     ;; prepare Subscription contract stateinit
     var state_init = assemble_stateinit(
@@ -82,20 +136,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     );
     storage::subscription_number += 1;
 
-    var msg_body = begin_cell()
-        .store_uint(op::init, 32)
-        .store_uint(query_id, 64)
-        .store_builder(assemble_subscription_init_content());
-    var msg = begin_cell()
-        .store_uint(0x18, 6)
-        .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
-        .store_coins(0)
-        .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-        .store_ref(state_init)
-        .store_builder(msg_body)
-    .end_cell();
-
-    send_raw_message(msg, 64);
+    send_deploy_init_msg(query_id, state_init);
 
     save_data();
 }
@@ -104,6 +145,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     throw_unless(error::not_admin, sender_addr == storage::subscription_manager);
 
     storage::subscription_fee = msg_body_content~load_coins();
+    storage::periodic_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
 
     reply(query_id, sender_addr);
@@ -131,18 +173,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
         owner_addr
     );
 
-    var msg_body = begin_cell()
-        .store_uint(op::update_authority, 32)
-        .store_uint(query_id, 64)
-        .store_slice(storage::subscription_manager);
-    var msg = begin_cell()
-        .store_uint(0x18, 6)
-        .store_slice(subscription_addr)
-        .store_coins(0)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_builder(msg_body)
-    .end_cell();
-    send_raw_message(msg, 64);
+    send_update_subscription_authority_msg(query_id, subscription_addr);
 }
 
 ;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
@@ -164,7 +195,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     slice sender_addr = cs~load_msg_addr();
 
     if (op == op::subscribe) {
-        subscribe(sender_addr, query_id, in_msg_body);
+        subscribe(sender_addr, query_id, msg_value, in_msg_body);
         return ();
     }
 
@@ -186,12 +217,13 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     throw(error::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
 }
 
-(int, slice, int, int, cell) get_subscription_master_data() method_id {
+(int, slice, int, int, int, cell) get_subscription_master_data() method_id {
     load_data();
     return (
         storage::subscription_number,
         storage::subscription_manager,
         storage::subscription_fee,
+        storage::periodic_fee,
         storage::fee_period,
         storage::subscription_code
     );
