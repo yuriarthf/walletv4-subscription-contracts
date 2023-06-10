@@ -23,16 +23,15 @@ global int storage::activated?;
 const int MIN_TON_RESERVE = 50000000;
 
 ;; Auxiliary functions
-() assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
+cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     return begin_cell()
         .store_uint(0x18, 6)
         .store_slice(storage::owner)
         .store_coins(0)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_builder(begin_cell()
-            .store_uint(op::request_funds, 32)
-            .store_uint(query_id, 64)
-            .store_coins(toncoins))
+        .store_uint(op::request_funds, 32)
+        .store_uint(query_id, 64)
+        .store_coins(toncoins)
     .end_cell();
 }
 
