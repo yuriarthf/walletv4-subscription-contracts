@@ -16,6 +16,7 @@ global slice storage::owner;
 global slice storage::manager;
 global int storage::fee;
 global int storage::period;
+global int storage::activation_fee;
 global int storage::last_paid;
 global int storage::activated?;
 
@@ -35,6 +36,24 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     .end_cell();
 }
 
+cell assemble_collect_fee_msg(int query_id) inline {
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_slice(storage::manager)
+        .store_coins(storage::activation_fee)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(op::subscription_fee_transfer, 32)
+        .store_uint(query_id, 64)
+        .store_slice(storage::owner)
+    .end_cell();
+}
+
+;; Internal Messages
+() collect_subscription_fee(int query_id, int remaining_msg_value) inline {
+    throw_if(error::insufficient_funds, remaining_msg_value < storage::activation_fee);
+    send_raw_message(assemble_collect_fee_msg(subscriber_addr, query_id, storage::subscription_fee), 1);
+}
+
 ;; Storage (C4) manipulation functions
 () load_init_data() inline {
     var ds = get_data().begin_parse();
@@ -49,9 +68,11 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     storage::owner = ds~load_msg_addr();
     throw_if(error::init_false, ds.slice_empty?());
     storage::manager = ds~load_msg_addr();
+    storage::activation_fee = ds~load_coins();
     storage::fee = ds~load_coins();
     storage::period = ds~load_uint(32);
     storage::last_paid = ds~load_uint(32);
+    storage::activated? = ds~load_uint(1);
 }
 
 () save_data() inline {
@@ -59,6 +80,7 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
         .stora_slice(storage::subscription_master)
         .store_slice(storage::owner)
         .store_slice(storage::manager)
+        .store_coins(storage::activation_fee)
         .store_coins(storage::fee)
         .store_uint(storage::period, 32)
         .store_uint(storage::last_paid, 32)
@@ -72,6 +94,7 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     throw_unless(error::not_admin, sender_addr == storage::subscription_master);
 
     storage::manager = msg_body_content~load_msg_addr();
+    storage::activation_fee = msg_body_content~load_coins();
     storage::fee = msg_body_content~load_coins();
     storage::period = msg_body_content~load_uint(32);
     storage::last_paid = now();
@@ -84,11 +107,16 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     save_data();
 }
 
-() activate(slice sender_addr, int query_id) inline {
+() activate(slice sender_addr, int query_id, int remaining_msg_value) inline {
     throw_unless(error::not_owner, sender_addr == storage::owner);
     throw_if(error::activated, storage::activated?);
 
+    ;; collect subscription fee from new user
+    collect_subscription_fee(query_id, remaining_msg_value);
+
     storage::activated? = true;
+
+    reply(query_id, sender_addr);
 
     save_data();
 }
@@ -98,6 +126,8 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     throw_unless(error::not_activated, storage::activated?);
 
     storage::activated? = false;
+
+    reply(query_id, sender_addr);
 
     save_data();
 }
@@ -156,7 +186,7 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     load_data(); ;; load storage variables
 
     if (op == op::activate_subscription) {
-        activate(sender_addr, query_id);
+        activate(sender_addr, query_id, msg_value);
         return ();
     }
 
@@ -176,4 +206,23 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) {
     }
 
     throw(error::unknown_op);
+}
+
+(slice, slice, slice, int, int, int, int, int) get_subscription_data() method_id {
+    load_data();
+    return (
+        storage::subscription_master,
+        storage::owner,
+        storage::manager,
+        storage::activation_fee,
+        storage::fee,
+        storage::period,
+        storage::last_paid,
+        storage::activated?
+    );
+}
+
+int is_activated() method_id {
+    load_data();
+    return storage::activated?;
 }

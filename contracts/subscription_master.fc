@@ -53,21 +53,9 @@ cell assemble_deploy_and_init_msg(int query_id, cell state_init) inline {
         .store_uint(op::init, 32)
         .store_uint(query_id, 64)
         .store_slice(storage::subscription_manager)
+        .store_coins(storage::subscription_fee)
         .store_coins(storage::periodic_fee)
         .store_uint(storage::fee_period, 32)
-        .store_builder(assemble_subscription_init_content())
-    .end_cell();
-}
-
-cell assemble_collect_fee_msg(slice subscriber_addr, int query_id, int msg_value) inline {
-    return begin_cell()
-        .store_uint(0x18, 6)
-        .store_slice(storage::subscription_manager)
-        .store_coins(msg_value)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_uint(op::agora_fee_transfer, 32)
-        .store_uint(query_id, 64)
-        .store_slice(subscriber_addr)
     .end_cell();
 }
 
@@ -86,11 +74,6 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 ;; Internal Messages
 () send_deploy_init_msg(int query_id, cell state_init) inline {
     send_raw_message(assemble_deploy_and_init_msg(query_id, state_init), 64);
-}
-
-() collect_subscription_fee(slice subscriber_addr, int query_id, int msg_value) inline {
-    throw_if(error::insufficient_funds, msg_value < storage::subscription_fee);
-    send_raw_message(assemble_collect_fee_msg(subscriber_addr, query_id, storage::subscription_fee), 1);
 }
 
 () send_update_subscription_authority_msg(int query_id, slice subscription_addr) inline {
@@ -125,9 +108,6 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 () subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) inline {
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
     force_chain(WORKCHAIN_ID, sender_addr);
-
-    ;; collect subscription fee from new user
-    collect_subscription_fee(sender_addr, query_id, msg_value);
 
     ;; prepare Subscription contract stateinit
     var state_init = assemble_stateinit(
