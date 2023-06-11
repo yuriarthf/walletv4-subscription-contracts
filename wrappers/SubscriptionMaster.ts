@@ -21,11 +21,19 @@ export type SubscriptionMasterConfig = {
 };
 
 export type Init = {
+    query_id?: bigint;
     manager: Address;
     subscription_fee: bigint;
     periodic_fee: bigint;
     fee_period: bigint;
     subscription_code: Cell;
+}
+
+export type Configure = {
+    query_id?: bigint;
+    subscription_fee: bigint;
+    periodic_fee: bigint;
+    fee_period: bigint;
 }
 
 function toSnakeFormat(str: string): Cell {
@@ -95,13 +103,26 @@ export class SubscriptionMaster implements Contract {
         return new SubscriptionMaster(contractAddress(workchain, init), init);
     }
 
-    async sendDeploy(provider: ContractProvider, via: Sender, queryId: bigint, value: bigint, init: Init) {
+    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
+        const initBody = beginCell();
+        if (init) {
+            await this.sendInit(provider, via, value, init);
+            return;
+        }
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().endCell(),
+        });
+    }
+
+    async sendInit(provider: ContractProvider, via: Sender, value: bigint, init: Init) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
                 .storeUint(Opcodes.init, 32)
-                .storeUint(queryId, 64)
+                .storeUint(init.query_id ?? 0, 64)
                 .storeAddress(init.manager)
                 .storeCoins(init.subscription_fee)
                 .storeCoins(init.periodic_fee)
@@ -109,5 +130,78 @@ export class SubscriptionMaster implements Contract {
                 .storeRef(init.subscription_code)
             .endCell(),
         });
+    }
+
+    async sendSubscribe(provider: ContractProvider, via: Sender, value: bigint, queryId?: bigint) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.subscribe, 32)
+                .storeUint(queryId ?? 0, 64)
+            .endCell(),
+        });
+    }
+
+    async sendConfigure(
+        provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        configure: Configure
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.subscribe, 32)
+                .storeUint(configure.query_id ?? 0, 64)
+                .storeCoins(configure.subscription_fee)
+                .storeCoins(configure.periodic_fee)
+                .storeUint(configure.fee_period, 32)
+            .endCell(),
+        });
+    }
+
+    async sendChangeManager(
+        provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        newManager: Address,
+        queryId?: bigint,
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.change_manager, 32)
+                .storeUint(queryId ?? 0, 64)
+                .storeAddress(newManager)
+            .endCell(),
+        });
+    }
+
+    async sendUpdateSubscriptionAuthority(provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        owner: Address,
+        queryId?: bigint,
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.update_subscription_authority, 32)
+                .storeUint(queryId ?? 0, 64)
+                .storeAddress(owner)
+            .endCell(),
+        });
+    }
+
+    async getSubscriptionManagerData(provider: ContractProvider) {
+        return await provider.get("get_subscription_master_data", []);
+    }
+
+    async getUserSubscription(provider: ContractProvider) {
+        return await provider.get("get_user_subscription", []);
     }
 }

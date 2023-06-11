@@ -119,7 +119,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     load_init_data();
 
     storage::manager = msg_body_content~load_msg_addr();
-    storage::subscription_number = msg_body_content~load_uint(256);
+    storage::subscription_number = 0; ;; subscription counter starts at 0
     storage::subscription_fee = msg_body_content~load_coins();
     storage::periodic_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
@@ -163,7 +163,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 () change_manager(slice sender_addr, int query_id, slice msg_body_content) inline {
     throw_unless(error::not_admin, sender_addr == storage::subscription_manager);
 
-    storage::subscription_manager = msg_body_content~load_msg_addr();
+    storage::manager = msg_body_content~load_msg_addr();
 
     reply(query_id, sender_addr);
     
@@ -200,7 +200,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     slice sender_addr = cs~load_msg_addr();
 
     if (op == op::init) {
-        init(sender_addr, query_id, in_msg_body)
+        init(sender_addr, query_id, in_msg_body);
         return ();
     }
 
