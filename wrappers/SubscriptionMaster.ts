@@ -59,8 +59,10 @@ export function subscriptionMasterConfigToCell(config: SubscriptionMasterConfig)
     }
 
     return beginCell()
-        .storeUint(0, 8) // onchain data
-        .storeDict(metadata)
+        .storeRef(beginCell()
+            .storeUint(0, 8)
+            .storeDict(metadata)
+        .endCell())
     .endCell();
 }
 

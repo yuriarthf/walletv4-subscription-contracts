@@ -20,7 +20,7 @@
 ;; periodic_fee: Fee to be substract by the user periodically
 ;; fee_period: Fee payment interval (in seconds)
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
-global slice storage::metadata;
+global cell storage::metadata;
 global slice storage::manager;
 global int storage::subscription_number;
 global int storage::subscription_fee;
@@ -30,6 +30,7 @@ global cell storage::subscription_code;
 
 ;; Constants
 const int WORKCHAIN_ID = 0;
+const int MIN_TON_RESERVE = 50000000;
 
 ;; Auxiliary functions
 
@@ -83,11 +84,18 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 }
 
 ;; Storage (C4) manipulation functions
+() load_init_data() inline {
+    var ds = get_data().begin_parse();
+    storage::metadata = ds~load_ref();
+    throw_unless(error::init_true, ds~slice_empty?());
+}
 
 () load_data() inline {
     var ds = get_data().begin_parse();
-    storage::subscription_number = ds~load_uint(256);
+    storage::metadata = ds~load_ref();
+    throw_if(error::init_false, ds~slice_empty?());
     storage::manager = ds~load_msg_addr();
+    storage::subscription_number = ds~load_uint(256);
     storage::subscription_fee = ds~load_coins();
     storage::periodic_fee = ds~load_coins();
     storage::fee_period = ds~load_uint(32);
@@ -96,8 +104,9 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
 () save_data() inline {
     set_data(begin_cell()
-        .store_uint(storage::subscription_number, 256)
+        .store_ref(storage::metadata)
         .store_slice(storage::manager)
+        .store_uint(storage::subscription_number, 256)
         .store_coins(storage::subscription_fee)
         .store_coins(storage::periodic_fee)
         .store_uint(storage::fee_period, 32)
@@ -105,7 +114,23 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     .end_cell());
 }
 
-;; OP functions 
+;; OP functions
+() init(slice sender_addr, int query_id, slice msg_body_content) inline {
+    load_init_data();
+
+    storage::manager = msg_body_content~load_msg_addr();
+    storage::subscription_number = msg_body_content~load_uint(256);
+    storage::subscription_fee = msg_body_content~load_coins();
+    storage::periodic_fee = msg_body_content~load_coins();
+    storage::fee_period = msg_body_content~load_uint(32);
+    storage::subscription_code = msg_body_content~load_ref();
+
+    raw_reserve(MIN_TON_RESERVE, 0);
+
+    reply(query_id, sender_addr);
+
+    save_data();
+}
 
 () subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) inline {
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
@@ -170,11 +195,16 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
         return ();
     }
 
-    load_data(); ;; load storage variables
-
     int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
     int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
     slice sender_addr = cs~load_msg_addr();
+
+    if (op == op::init) {
+        init(sender_addr, query_id, in_msg_body)
+        return ();
+    }
+
+    load_data(); ;; load storage variables
 
     if (op == op::subscribe) {
         subscribe(sender_addr, query_id, msg_value, in_msg_body);

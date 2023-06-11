@@ -1,8 +1,6 @@
 #include "common.fc";
 
 ;; Subscription error codes
-const int error::init_true = 101; 
-const int error::init_false = 102;
 const int error::not_activated = 103;
 const int error::activated = 104;
 const int error::fee_period = 105;
