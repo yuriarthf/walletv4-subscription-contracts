@@ -20,6 +20,14 @@ export type SubscriptionMasterConfig = {
     };
 };
 
+export type Init = {
+    manager: Address;
+    subscription_fee: bigint;
+    periodic_fee: bigint;
+    fee_period: bigint;
+    subscription_code: Cell;
+}
+
 function toSnakeFormat(str: string): Cell {
     const snakeCell = beginCell();
     if (str.length > 127) { // 127 bytes = 1016 bits (< 1023)
@@ -67,6 +75,7 @@ export function subscriptionMasterConfigToCell(config: SubscriptionMasterConfig)
 }
 
 export const Opcodes = {
+    init: 0x29c102d1 & 0x7fffffff,
     subscribe: 0x5fcc3d14 & 0x7fffffff,
     configure: 0x9e90e363 & 0x7fffffff,
     change_manager: 0x6780b0d9 & 0x7fffffff,
@@ -86,41 +95,19 @@ export class SubscriptionMaster implements Contract {
         return new SubscriptionMaster(contractAddress(workchain, init), init);
     }
 
-    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+    async sendDeploy(provider: ContractProvider, via: Sender, queryId: bigint, value: bigint, init: Init) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().endCell(),
-        });
-    }
-
-    async sendIncrease(
-        provider: ContractProvider,
-        via: Sender,
-        opts: {
-            increaseBy: number;
-            value: bigint;
-            queryID?: number;
-        }
-    ) {
-        await provider.internal(via, {
-            value: opts.value,
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(Opcodes.increase, 32)
-                .storeUint(opts.queryID ?? 0, 64)
-                .storeUint(opts.increaseBy, 32)
-                .endCell(),
+                .storeUint(Opcodes.init, 32)
+                .storeUint(queryId, 64)
+                .storeAddress(init.manager)
+                .storeCoins(init.subscription_fee)
+                .storeCoins(init.periodic_fee)
+                .storeUint(init.fee_period, 32)
+                .storeRef(init.subscription_code)
+            .endCell(),
         });
-    }
-
-    async getCounter(provider: ContractProvider) {
-        const result = await provider.get('get_counter', []);
-        return result.stack.readNumber();
-    }
-
-    async getID(provider: ContractProvider) {
-        const result = await provider.get('get_id', []);
-        return result.stack.readNumber();
     }
 }
