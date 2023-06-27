@@ -165,6 +165,34 @@ cell assemble_collect_fee_msg(int query_id) inline {
     save_data();
 }
 
+() request_payment_external(int query_id, slice msg_body_content) inline {
+    throw_unless(error::not_activated, storage::activated?);
+    throw_unless(error::fee_period, payment_due?());
+    accept_message();
+
+    ;; adjust `last_paid` to the beginning of the period interval
+    storage::last_paid = (now() - storage::last_paid) / storage::period * storage::period + storage::last_paid;
+
+    ;; Ignore the case that more than one period has passed, it's responsibility of the
+    ;; service to execute payment requests in time.
+    ;; Allow only Toncoin payments (pass empty extra dict)
+    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, empty_dict()), 64);
+
+    save_data();
+}
+
+() recv_external(slice in_msg_body) impure {
+    int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
+    int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
+
+    load_data(); ;; load storage variables
+
+    if (op == op::request_payment) {
+        request_payment_external(query_id, in_msg_body);
+        return ();
+    }
+}
+
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     if (in_msg_body.slice_empty?()) { ;; receive ton transfers (simple transfer without message)
         return ();
