@@ -14,14 +14,14 @@ import { sha256_sync } from "ton-crypto";
 
 
 export type SubscriptionMasterConfig = {
-    metadata: {
-        name?: string;
-        description?: string;
-    };
+    name?: string;
+    description?: string;
+    url?: string;
 };
 
 export type Init = {
     query_id?: bigint;
+    metadata: Cell;
     manager: Address;
     subscription_fee: bigint;
     periodic_fee: bigint;
@@ -48,37 +48,78 @@ function toSnakeFormat(str: string): Cell {
     return snakeCell.endCell();
 }
 
-export function subscriptionMasterConfigToCell(config: SubscriptionMasterConfig): Cell {
+export function assembleSubscriptionMasterInitData(index: bigint): Cell {
+    return beginCell()
+        .storeUint(index, 256)
+    .endCell();
+}
+
+export function createSubscriptionMasterInitMsgContent(
+    queryId: bigint,
+    config: SubscriptionMasterConfig,
+    manager: Address,
+    subscriptionFee: bigint,
+    periodicFee: bigint,
+    feePeriod: bigint,
+    subscriptionCode: Cell
+) {
+    return {
+        query_id: queryId,
+        metadata: assembleSubscriptionMetadata(config),
+        manager,
+        subscription_fee: subscriptionFee,
+        periodic_fee: periodicFee,
+        fee_period: feePeriod,
+        subscription_code: subscriptionCode
+    };
+}
+
+export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
+    if (config.url && !(config.name || config.description)) {
+        return beginCell()
+            .storeUint(0x01, 8)
+            .storeStringRefTail(config.url)
+        .endCell();
+    }
+
     const metadata = Dictionary.empty(
         Dictionary.Keys.Buffer(32),
         Dictionary.Values.Cell()
     );
 
-    if (config.metadata.name) {
+    if (config.name) {
         metadata.set(
             sha256_sync("name"),
             beginCell()
                 .storeUint(0, 8) // Snake format data
-                .storeRef(toSnakeFormat(config.metadata.name))
+                .storeRef(toSnakeFormat(config.name))
             .endCell()
         );
     }
 
-    if (config.metadata.description) {
+    if (config.description) {
         metadata.set(
             sha256_sync("description"),
             beginCell()
                 .storeUint(0, 8) // Snake format data
-                .storeRef(toSnakeFormat(config.metadata.description))
+                .storeRef(toSnakeFormat(config.description))
+            .endCell()
+        );
+    }
+
+    if (config.url) {
+        metadata.set(
+            sha256_sync("url"),
+            beginCell()
+                .storeUint(0, 8) // Snake format data
+                .storeRef(toSnakeFormat(config.url))
             .endCell()
         );
     }
 
     return beginCell()
-        .storeRef(beginCell()
-            .storeUint(0, 8)
-            .storeDict(metadata)
-        .endCell())
+        .storeUint(0, 8)
+        .storeDict(metadata)
     .endCell();
 }
 
@@ -97,14 +138,13 @@ export class SubscriptionMaster implements Contract {
         return new SubscriptionMaster(address);
     }
 
-    static createFromConfig(config: SubscriptionMasterConfig, code: Cell, workchain = 0) {
-        const data = subscriptionMasterConfigToCell(config);
+    static createFromConfig(index: bigint, code: Cell, workchain = 0) {
+        const data = assembleSubscriptionMasterInitData(index);
         const init = { code, data };
         return new SubscriptionMaster(contractAddress(workchain, init), init);
     }
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
-        const initBody = beginCell();
         if (init) {
             await this.sendInit(provider, via, value, init);
             return;
@@ -116,18 +156,19 @@ export class SubscriptionMaster implements Contract {
         });
     }
 
-    async sendInit(provider: ContractProvider, via: Sender, value: bigint, init: Init) {
+    async sendInit(provider: ContractProvider, via: Sender, value: bigint, content: Init) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
                 .storeUint(Opcodes.init, 32)
-                .storeUint(init.query_id ?? 0, 64)
-                .storeAddress(init.manager)
-                .storeCoins(init.subscription_fee)
-                .storeCoins(init.periodic_fee)
-                .storeUint(init.fee_period, 32)
-                .storeRef(init.subscription_code)
+                .storeUint(content.query_id ?? 0, 64)
+                .storeRef(content.metadata)
+                .storeAddress(content.manager)
+                .storeCoins(content.subscription_fee)
+                .storeCoins(content.periodic_fee)
+                .storeUint(content.fee_period, 32)
+                .storeRef(content.subscription_code)
             .endCell(),
         });
     }
@@ -199,6 +240,10 @@ export class SubscriptionMaster implements Contract {
 
     async getSubscriptionManagerData(provider: ContractProvider) {
         return await provider.get("get_subscription_master_data", []);
+    }
+
+    async getSubscriptionMetadata(provider: ContractProvider) {
+        return await provider.get("get_subscription_metadata", []);
     }
 
     async getUserSubscription(provider: ContractProvider) {

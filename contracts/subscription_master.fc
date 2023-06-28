@@ -11,6 +11,8 @@
 
 ;; Storage variables
 
+;; index: Index of the subscription master, used to retrieve already
+;;  deployed contracts
 ;; metadata: Contains information about the subscription (service)
 ;; manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
@@ -20,6 +22,7 @@
 ;; periodic_fee: Fee to be substract by the user periodically
 ;; fee_period: Fee payment interval (in seconds)
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
+global int storage::index;
 global cell storage::metadata;
 global slice storage::manager;
 global int storage::subscription_number;
@@ -86,14 +89,15 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 ;; Storage (C4) manipulation functions
 () load_init_data() inline {
     var ds = get_data().begin_parse();
-    storage::metadata = ds~load_ref();
+    storage::index = ds~load_uint(256);
     throw_unless(error::init_true, ds~slice_empty?());
 }
 
 () load_data() inline {
     var ds = get_data().begin_parse();
-    storage::metadata = ds~load_ref();
+    storage::index = ds~load_uint(256);
     throw_if(error::init_false, ds~slice_empty?());
+    storage::metadata = ds~load_ref();
     storage::manager = ds~load_msg_addr();
     storage::subscription_number = ds~load_uint(256);
     storage::subscription_fee = ds~load_coins();
@@ -104,6 +108,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
 () save_data() inline {
     set_data(begin_cell()
+        .store_uint(storage::index, 256)
         .store_ref(storage::metadata)
         .store_slice(storage::manager)
         .store_uint(storage::subscription_number, 256)
@@ -118,6 +123,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 () init(slice sender_addr, int query_id, slice msg_body_content) inline {
     load_init_data();
 
+    storage::metadata msg_body_content~load_ref();
     storage::manager = msg_body_content~load_msg_addr();
     storage::subscription_number = 0; ;; subscription counter starts at 0
     storage::subscription_fee = msg_body_content~load_coins();
@@ -229,9 +235,10 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     throw(error::unknown_op); ;; if the message contains an op that is not known to this contract, we throw
 }
 
-(slice, slice, int, int, int, int, cell) get_subscription_master_data() method_id {
+(int, cell, slice, int, int, int, int, cell) get_subscription_master_data() method_id {
     load_data();
     return (
+        storage::index,
         storage::metadata,
         storage::manager,
         storage::subscription_number
@@ -240,6 +247,11 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
         storage::fee_period,
         storage::subscription_code
     );
+}
+
+cell get_subscription_metadata() method_id {
+    load_data();
+    return storage::metadata;
 }
 
 slice get_user_subscription(slice user_addr) method_id {
