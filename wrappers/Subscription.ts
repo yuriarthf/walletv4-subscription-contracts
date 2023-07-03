@@ -1,6 +1,5 @@
 import {
     Address,
-    Dictionary,
     beginCell,
     Cell,
     Contract,
@@ -45,6 +44,22 @@ export class Subscription implements Contract {
         const data = assembleSubscriptionInitData(subscritionMaster, owner);
         const init = { code, data };
         return new Subscription(contractAddress(workchain, init), init);
+    }
+
+    static createSubscriptionInitMsgContent(
+        queryId: bigint,
+        manager: Address,
+        activationFee: bigint,
+        fee: bigint,
+        period: bigint,
+    ) {
+        return {
+            query_id: queryId,
+            manager,
+            activation_fee: activationFee,
+            fee,
+            period,
+        };
     }
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
