@@ -149,7 +149,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     save_data();
 }
 
-() request_payment(slice sender_addr, int query_id, slice msg_body_content) inline {
+() request_payment_internal(slice sender_addr, int query_id, slice msg_body_content) inline {
     throw_unless(error::not_admin, sender_addr == storage::manager);
     throw_unless(error::not_activated, storage::activated?);
     throw_unless(error::fee_period, payment_due?());
@@ -233,7 +233,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     }
 
     if (op == op::request_payment) {
-        request_payment(sender_addr, query_id, in_msg_body);
+        request_payment_internal(sender_addr, query_id, in_msg_body);
         return ();
     }
 

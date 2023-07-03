@@ -54,26 +54,6 @@ export function assembleSubscriptionMasterInitData(index: bigint): Cell {
     .endCell();
 }
 
-export function createSubscriptionMasterInitMsgContent(
-    queryId: bigint,
-    config: SubscriptionMasterConfig,
-    manager: Address,
-    subscriptionFee: bigint,
-    periodicFee: bigint,
-    feePeriod: bigint,
-    subscriptionCode: Cell
-) {
-    return {
-        query_id: queryId,
-        metadata: assembleSubscriptionMetadata(config),
-        manager,
-        subscription_fee: subscriptionFee,
-        periodic_fee: periodicFee,
-        fee_period: feePeriod,
-        subscription_code: subscriptionCode
-    };
-}
-
 export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
     if (config.url && !(config.name || config.description)) {
         return beginCell()
@@ -142,6 +122,26 @@ export class SubscriptionMaster implements Contract {
         const data = assembleSubscriptionMasterInitData(index);
         const init = { code, data };
         return new SubscriptionMaster(contractAddress(workchain, init), init);
+    }
+
+    static createSubscriptionMasterInitMsgContent(
+        queryId: bigint,
+        config: SubscriptionMasterConfig,
+        manager: Address,
+        subscriptionFee: bigint,
+        periodicFee: bigint,
+        feePeriod: bigint,
+        subscriptionCode: Cell
+    ) {
+        return {
+            query_id: queryId,
+            metadata: assembleSubscriptionMetadata(config),
+            manager,
+            subscription_fee: subscriptionFee,
+            periodic_fee: periodicFee,
+            fee_period: feePeriod,
+            subscription_code: subscriptionCode
+        };
     }
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
