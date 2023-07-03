@@ -25,7 +25,9 @@ export type Init = {
 }
 
 export const Opcodes = {
-    init: 0x29c102d1 & 0x7fffffff
+    init: 0x29c102d1 & 0x7fffffff,
+    request_payment: 0xa5d92f79 & 0x7fffffff,
+    update_authority: 0x49697bd2 & 0x7fffffff
 };
 
 export class Subscription implements Contract {
@@ -62,6 +64,50 @@ export class Subscription implements Contract {
         };
     }
 
+    static createActivateSubscriptionExternalMsgContent(
+        queryId: bigint,
+        value: bigint,
+        signature: bigint,
+        subwalletId: bigint,
+        validUntil: bigint,
+        msgSeqNo: bigint,
+        subscriptionAddress: Address
+    ): Cell {
+        return beginCell()
+            .storeUint(signature, 512)
+            .storeUint(subwalletId, 32)
+            .storeUint(validUntil, 32)
+            .storeUint(msgSeqNo, 32)
+            .storeUint(2, 32)
+            .storeUint(subscriptionAddress.workChain, 8)
+            .storeBuffer(subscriptionAddress.hash, 32)
+            .storeCoins(value)
+            .storeUint(queryId, 64)
+        .endCell();
+    }
+
+    static createDeactivateSubscriptionExternalMsgContent(
+        queryId: bigint,
+        value: bigint,
+        signature: bigint,
+        subwalletId: bigint,
+        validUntil: bigint,
+        msgSeqNo: bigint,
+        subscriptionAddress: Address
+    ): Cell {
+        return beginCell()
+            .storeUint(signature, 512)
+            .storeUint(subwalletId, 32)
+            .storeUint(validUntil, 32)
+            .storeUint(msgSeqNo, 32)
+            .storeUint(2, 32)
+            .storeUint(subscriptionAddress.workChain, 8)
+            .storeBuffer(subscriptionAddress.hash, 32)
+            .storeCoins(value)
+            .storeUint(queryId, 64)
+        .endCell();
+    }
+
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
         if (init) {
             await this.sendInit(provider, via, value, init);
@@ -87,5 +133,72 @@ export class Subscription implements Contract {
                 .storeUint(content.period, 32)
             .endCell(),
         });
+    }
+
+    async sendRequestPaymentExternal(provider: ContractProvider, queryId: bigint) {
+        await provider.external(
+            beginCell()
+                .storeUint(Opcodes.request_payment, 32)
+                .storeUint(queryId, 64)
+            .endCell()
+        )
+    }
+
+    async sendRequestPaymentInternal(
+        provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        queryId: bigint
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.request_payment, 32)
+                .storeUint(queryId, 64)
+            .endCell(),
+        })
+    }
+
+    async sendUpdateAuthority(
+        provider: ContractProvider,
+        via: Sender,
+        value: bigint,
+        queryId: bigint,
+        newManager: Address
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.update_authority, 32)
+                .storeUint(queryId, 64)
+                .storeAddress(newManager)
+            .endCell()
+        });
+    }
+
+    async getSubscriptionData(provider: ContractProvider) {
+        return await provider.get("get_subscription_data", []);
+    }
+
+    async getSubscriptionMaster(provider: ContractProvider) {
+        return await provider.get("get_subscription_master", []);
+    }
+
+    async getSubscriber(provider: ContractProvider) {
+        return await provider.get("get_subscriber", []);
+    }
+
+    async getFeeInfo(provider: ContractProvider) {
+        return await provider.get("get_fee_info", []);
+    }
+
+    async isPaymentDue(provider: ContractProvider) {
+        return await provider.get("is_payment_due", []);
+    }
+
+    async isActivated(provider: ContractProvider) {
+        return await provider.get("is_activated", []);
     }
 }
