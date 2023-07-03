@@ -181,6 +181,14 @@ cell assemble_collect_fee_msg(int query_id) inline {
     save_data();
 }
 
+() bounce_request_funds() inline {
+    load_data(); ;; load storage variables
+
+    storage::activated? = false;
+
+    save_data();
+}
+
 () recv_external(slice in_msg_body) impure {
     int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
     int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
@@ -198,15 +206,19 @@ cell assemble_collect_fee_msg(int query_id) inline {
         return ();
     }
 
-    slice cs = in_msg_full.begin_parse();
-    int flags = cs~load_uint(4);
-    if (flags & 1) { ;; ignore all bounced messages (just receive excedents)
-        return ();
-    }
-
     int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
     int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
+
     slice sender_addr = cs~load_msg_addr();
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) {
+        if (op == op::request_funds) {
+            bounce_request_funds();
+        }
+        return ();
+    }
 
     ;; perform op::init before `load_data`, since it still doesn't have the
     ;; full storage, so `load_data` would fail.
