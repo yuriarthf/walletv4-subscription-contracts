@@ -48,13 +48,13 @@ function toSnakeFormat(str: string): Cell {
     return snakeCell.endCell();
 }
 
-export function assembleSubscriptionMasterInitData(index: bigint): Cell {
+function assembleSubscriptionMasterInitData(index: bigint): Cell {
     return beginCell()
         .storeUint(index, 256)
     .endCell();
 }
 
-export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
+function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
     if (config.url && !(config.name || config.description)) {
         return beginCell()
             .storeUint(0x01, 8)
@@ -236,6 +236,10 @@ export class SubscriptionMaster implements Contract {
                 .storeAddress(owner)
             .endCell(),
         });
+    }
+
+    async getSubscriptionCodeHash(provider: ContractProvider) {
+        return await provider.get("get_subscription_code_hash", []);
     }
 
     async getSubscriptionManagerData(provider: ContractProvider) {
