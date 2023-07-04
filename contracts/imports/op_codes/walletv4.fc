@@ -1,5 +1,5 @@
 #include "common.fc";
 
 ;; WalletV4 OP Codes
-const int op::subscription_fee_transfer = "op::subscription_fee_transfer"c;
+const int op::activation_fee_transfer = "op::subscription_fee_transfer"c;
 const int op::request_funds = 0x706c7567;

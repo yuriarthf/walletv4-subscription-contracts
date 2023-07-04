@@ -4,4 +4,5 @@ const int error::init_false = 102;
 const int error::invalid_workchain = 201;
 const int error::not_admin = 202;
 const int error::no_storage_change = 203;
+const int error::insufficient_funds = 301;
 const int error::unknown_op = 0xffff;

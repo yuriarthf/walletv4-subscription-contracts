@@ -46,16 +46,16 @@ cell assemble_collect_fee_msg(int query_id) inline {
         .store_slice(storage::manager)
         .store_coins(storage::activation_fee)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_uint(op::subscription_fee_transfer, 32)
+        .store_uint(op::activation_fee_transfer, 32)
         .store_uint(query_id, 64)
         .store_slice(storage::owner)
     .end_cell();
 }
 
 ;; Internal Messages
-() collect_subscription_fee(int query_id, int remaining_msg_value) inline {
+() collect_activation_fee(int query_id, int remaining_msg_value) inline {
     throw_if(error::insufficient_funds, remaining_msg_value < storage::activation_fee);
-    send_raw_message(assemble_collect_fee_msg(subscriber_addr, query_id, storage::subscription_fee), 1);
+    send_raw_message(assemble_collect_fee_msg(query_id), 1);
 }
 
 ;; Storage (C4) manipulation functions
@@ -67,7 +67,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 }
 
 () load_data() inline {
-    var ds = get_data();
+    var ds = get_data().begin_parse();
     storage::subscription_master = ds~load_msg_addr();
     storage::owner = ds~load_msg_addr();
     throw_if(error::init_false, ds.slice_empty?());
@@ -81,7 +81,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
 () save_data() inline {
     set_data(begin_cell()
-        .stora_slice(storage::subscription_master)
+        .store_slice(storage::subscription_master)
         .store_slice(storage::owner)
         .store_slice(storage::manager)
         .store_coins(storage::activation_fee)
@@ -95,7 +95,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 ;; OP functions
 () init(slice sender_addr, int query_id, slice msg_body_content) inline {
     load_init_data();
-    throw_unless(error::not_admin, sender_addr == storage::subscription_master);
+    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::subscription_master));
 
     storage::manager = msg_body_content~load_msg_addr();
     storage::activation_fee = msg_body_content~load_coins();
@@ -112,11 +112,11 @@ cell assemble_collect_fee_msg(int query_id) inline {
 }
 
 () activate(slice sender_addr, int query_id, int remaining_msg_value) inline {
-    throw_unless(error::not_owner, sender_addr == storage::owner);
+    throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_if(error::activated, storage::activated?);
 
-    ;; collect subscription fee from new user
-    collect_subscription_fee(query_id, remaining_msg_value);
+    ;; collect activation fee from new user
+    collect_activation_fee(query_id, remaining_msg_value);
 
     storage::activated? = true;
 
@@ -126,7 +126,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 }
 
 () deactivate(slice sender_addr, int query_id) inline {
-    throw_unless(error::not_owner, sender_addr == storage::owner);
+    throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_unless(error::not_activated, storage::activated?);
 
     storage::activated? = false;
@@ -137,10 +137,10 @@ cell assemble_collect_fee_msg(int query_id) inline {
 }
 
 () update_authority(slice sender_addr, int query_id, slice msg_body_content) inline {
-    throw_unless(error::not_master, sender_addr == storage::subscription_master);
+    throw_unless(error::not_master, sender_addr.equal_slice_bits(storage::subscription_master));
 
     slice new_manager = msg_body_content~load_msg_addr();
-    throw_if(error::no_storage_change, new_manager == storage::manager);
+    throw_if(error::no_storage_change, new_manager.equal_slice_bits(storage::manager));
 
     storage::manager = new_manager;
 
@@ -150,7 +150,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 }
 
 () request_payment_internal(slice sender_addr, int query_id, slice msg_body_content) inline {
-    throw_unless(error::not_admin, sender_addr == storage::manager);
+    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
     throw_unless(error::not_activated, storage::activated?);
     throw_unless(error::fee_period, payment_due?());
 
@@ -160,7 +160,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     ;; Ignore the case that more than one period has passed, it's responsibility of the
     ;; service to execute payment requests in time.
     ;; Allow only Toncoin payments (pass empty extra dict)
-    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, empty_dict()), 64);
+    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, new_dict()), 64);
 
     save_data();
 }
@@ -176,7 +176,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     ;; Ignore the case that more than one period has passed, it's responsibility of the
     ;; service to execute payment requests in time.
     ;; Allow only Toncoin payments (pass empty extra dict)
-    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, empty_dict()), 64);
+    send_raw_message(assemble_request_funds_msg(query_id, storage::fee, new_dict()), 1);
 
     save_data();
 }
@@ -209,9 +209,9 @@ cell assemble_collect_fee_msg(int query_id) inline {
     int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
     int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
 
+    slice cs = in_msg_full.begin_parse();
     slice sender_addr = cs~load_msg_addr();
 
-    slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
     if (flags & 1) {
         if (op == op::request_funds) {
@@ -266,12 +266,12 @@ cell assemble_collect_fee_msg(int query_id) inline {
     );
 }
 
-int get_subscription_master() method_id {
+slice get_subscription_master() method_id {
     load_data();
     return storage::subscription_master;
 }
 
-int get_subscriber() method_id {
+slice get_subscriber() method_id {
     load_data();
     return storage::owner;
 }
@@ -279,7 +279,7 @@ int get_subscriber() method_id {
 (int, int, int, int) get_fee_info() method_id {
     load_data();
     return (
-        storage::activation_fee
+        storage::activation_fee,
         storage::fee,
         storage::last_paid,
         storage::period
