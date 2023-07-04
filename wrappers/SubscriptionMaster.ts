@@ -54,7 +54,7 @@ function assembleSubscriptionMasterInitData(index: bigint): Cell {
     .endCell();
 }
 
-function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
+export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
     if (config.url && !(config.name || config.description)) {
         return beginCell()
             .storeUint(0x01, 8)
@@ -238,12 +238,29 @@ export class SubscriptionMaster implements Contract {
         });
     }
 
+    async getBalance(provider: ContractProvider) {
+        const currentState = await provider.getState();
+        return currentState.balance;
+    }
+
     async getSubscriptionCodeHash(provider: ContractProvider) {
         return await provider.get("get_subscription_code_hash", []);
     }
 
     async getSubscriptionMasterData(provider: ContractProvider) {
-        return await provider.get("get_subscription_master_data", []);
+        const data = await provider.get("get_subscription_master_data", []);
+        const stack = data.stack;
+
+        return {
+            index: stack.readBigNumber(),
+            metadata: stack.readCell(),
+            manager: stack.readAddress(),
+            subscriptionNumber: stack.readBigNumber(),
+            subscriptionFee: stack.readBigNumber(),
+            periodicFee: stack.readBigNumber(),
+            feePeriod: stack.readBigNumber(),
+            subscriptionCode: stack.readCell()
+        }
     }
 
     async getSubscriptionMetadata(provider: ContractProvider) {

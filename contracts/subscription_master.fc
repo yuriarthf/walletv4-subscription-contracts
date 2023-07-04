@@ -78,22 +78,22 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 }
 
 ;; Internal Messages
-() send_deploy_init_msg(int query_id, cell state_init) inline {
+() send_deploy_init_msg(int query_id, cell state_init) impure inline {
     send_raw_message(assemble_deploy_and_init_msg(query_id, state_init), 64);
 }
 
-() send_update_subscription_authority_msg(int query_id, slice subscription_addr) inline {
+() send_update_subscription_authority_msg(int query_id, slice subscription_addr) impure inline {
     send_raw_message(assemble_update_authority_msg(query_id, subscription_addr), 64);
 }
 
 ;; Storage (C4) manipulation functions
-() load_init_data() inline {
+() load_init_data() impure {
     var ds = get_data().begin_parse();
     storage::index = ds~load_uint(256);
     throw_unless(error::init_true, ds.slice_empty?());
 }
 
-() load_data() inline {
+() load_data() impure {
     var ds = get_data().begin_parse();
     storage::index = ds~load_uint(256);
     throw_if(error::init_false, ds.slice_empty?());
@@ -106,7 +106,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     storage::subscription_code = ds~load_ref();
 }
 
-() save_data() inline {
+() save_data() impure {
     set_data(begin_cell()
         .store_uint(storage::index, 256)
         .store_ref(storage::metadata)
@@ -120,7 +120,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 }
 
 ;; OP functions
-() init(slice sender_addr, int query_id, slice msg_body_content) inline {
+() init(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     load_init_data();
 
     storage::metadata = msg_body_content~load_ref();
@@ -133,12 +133,12 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
     raw_reserve(MIN_TON_RESERVE, 0);
 
-    reply(query_id, sender_addr);
-
     save_data();
+
+    reply_init(query_id, sender_addr);
 }
 
-() subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) inline {
+() subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) impure inline {
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
     force_chain(WORKCHAIN_ID, sender_addr);
 
@@ -154,7 +154,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     save_data();
 }
 
-() configure(slice sender_addr, int query_id, slice msg_body_content) inline {
+() configure(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
     storage::subscription_fee = msg_body_content~load_coins();
@@ -166,7 +166,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     save_data();
 }
 
-() change_manager(slice sender_addr, int query_id, slice msg_body_content) inline {
+() change_manager(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
     storage::manager = msg_body_content~load_msg_addr();
@@ -176,7 +176,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     save_data();
 }
 
-() update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) inline {
+() update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
     slice owner_addr = msg_body_content~load_msg_addr();
