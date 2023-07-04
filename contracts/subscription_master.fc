@@ -251,11 +251,16 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
 (int, int, int) get_fee_config() method_id {
     load_data();
-    return(
+    return (
         storage::subscription_fee,
         storage::periodic_fee,
         storage::fee_period
     );
+}
+
+slice get_manager() method_id {
+    load_data();
+    return storage::manager;
 }
 
 int get_subscription_code_hash() method_id {

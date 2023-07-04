@@ -288,6 +288,13 @@ export class SubscriptionMaster implements Contract {
         };
     }
 
+    async getManager(provider: ContractProvider): Promise<Address> {
+        const data = await provider.get("get_manager", []);
+        const stack = data.stack;
+
+        return stack.readAddress();
+    }
+
     async getSubscriptionMetadata(provider: ContractProvider) {
         return await provider.get("get_subscription_metadata", []);
     }

@@ -103,10 +103,49 @@ describe("SubscriptionMaster", () => {
             )
         );
 
-        const data = await subscriptionMaster.getFeeConfig();
+        let data = await subscriptionMaster.getFeeConfig();
 
         expect(data.subscriptionFee).toEqual(newSubscriptionFee);
         expect(data.periodicFee).toEqual(newPeriodicFee);
         expect(data.feePeriod).toEqual(newFeePeriod);
+
+        await subscriptionMaster.sendConfigure(
+            manager.getSender(),
+            toNano("0.5"),
+            SubscriptionMaster.formatConfiguration(
+                1n,
+                SUBSCRIPTION_FEE,
+                PERIODIC_FEE,
+                FEE_PERIOD
+            )
+        );
+
+        data = await subscriptionMaster.getFeeConfig();
+
+        expect(data.subscriptionFee).toEqual(SUBSCRIPTION_FEE);
+        expect(data.periodicFee).toEqual(PERIODIC_FEE);
+        expect(data.feePeriod).toEqual(FEE_PERIOD);
+    });
+
+    it("op::change_manager", async () => {
+        const newManager = await blockchain.treasury("newManager");
+
+        await subscriptionMaster.sendChangeManager(
+            manager.getSender(),
+            toNano("0.5"),
+            newManager.address,
+            0n
+        );
+
+        expect(await subscriptionMaster.getManager()).toEqualAddress(newManager.address);
+
+        await subscriptionMaster.sendChangeManager(
+            newManager.getSender(),
+            toNano("0.5"),
+            manager.address,
+            1n
+        );
+
+        expect(await subscriptionMaster.getManager()).toEqualAddress(manager.address);
     });
 });
