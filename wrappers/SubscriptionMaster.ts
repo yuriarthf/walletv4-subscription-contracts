@@ -144,6 +144,20 @@ export class SubscriptionMaster implements Contract {
         };
     }
 
+    static formatConfiguration(
+        queryId: bigint,
+        subscriptionFee: bigint,
+        periodicFee: bigint,
+        feePeriod: bigint
+    ) {
+        return {
+            query_id: queryId,
+            subscription_fee: subscriptionFee,
+            periodic_fee: periodicFee,
+            fee_period: feePeriod
+        }
+    }
+
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, init?: Init) {
         if (init) {
             await this.sendInit(provider, via, value, init);
@@ -194,7 +208,7 @@ export class SubscriptionMaster implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(Opcodes.subscribe, 32)
+                .storeUint(Opcodes.configure, 32)
                 .storeUint(configure.query_id ?? 0, 64)
                 .storeCoins(configure.subscription_fee)
                 .storeCoins(configure.periodic_fee)
@@ -260,7 +274,18 @@ export class SubscriptionMaster implements Contract {
             periodicFee: stack.readBigNumber(),
             feePeriod: stack.readBigNumber(),
             subscriptionCode: stack.readCell()
-        }
+        };
+    }
+
+    async getFeeConfig(provider: ContractProvider) {
+        const data = await provider.get("get_fee_config", []);
+        const stack = data.stack;
+
+        return {
+            subscriptionFee: stack.readBigNumber(),
+            periodicFee: stack.readBigNumber(),
+            feePeriod: stack.readBigNumber()
+        };
     }
 
     async getSubscriptionMetadata(provider: ContractProvider) {

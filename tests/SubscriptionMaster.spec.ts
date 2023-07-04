@@ -86,4 +86,27 @@ describe("SubscriptionMaster", () => {
 
         expect(await subscriptionMaster.getBalance()).toEqual(MIN_TON_RESERVE);
     });
+
+    it("op::configure", async () => {
+        const newSubscriptionFee = toNano("10");
+        const newPeriodicFee = toNano("4");
+        const newFeePeriod = 1315000n;
+
+        await subscriptionMaster.sendConfigure(
+            manager.getSender(),
+            toNano("0.5"),
+            SubscriptionMaster.formatConfiguration(
+                0n,
+                newSubscriptionFee,
+                newPeriodicFee,
+                newFeePeriod
+            )
+        );
+
+        const data = await subscriptionMaster.getFeeConfig();
+
+        expect(data.subscriptionFee).toEqual(newSubscriptionFee);
+        expect(data.periodicFee).toEqual(newPeriodicFee);
+        expect(data.feePeriod).toEqual(newFeePeriod);
+    });
 });

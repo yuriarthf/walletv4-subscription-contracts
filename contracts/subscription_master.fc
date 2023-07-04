@@ -249,6 +249,15 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     );
 }
 
+(int, int, int) get_fee_config() method_id {
+    load_data();
+    return(
+        storage::subscription_fee,
+        storage::periodic_fee,
+        storage::fee_period
+    );
+}
+
 int get_subscription_code_hash() method_id {
     load_data();
     return cell_hash(storage::subscription_code);
