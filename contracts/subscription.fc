@@ -295,3 +295,8 @@ int is_activated() method_id {
     load_data();
     return storage::activated?;
 }
+
+int is_fulfilled() method_id {
+    load_data();
+    return storage::activated? & ~ payment_due?();
+}

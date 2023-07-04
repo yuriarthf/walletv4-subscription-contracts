@@ -201,4 +201,8 @@ export class Subscription implements Contract {
     async isActivated(provider: ContractProvider) {
         return await provider.get("is_activated", []);
     }
+
+    async isFulfilled(provider: ContractProvider) {
+        return await provider.get("is_fulfilled", []);
+    }
 }

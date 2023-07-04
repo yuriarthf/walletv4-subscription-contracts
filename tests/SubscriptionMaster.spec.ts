@@ -1,11 +1,11 @@
-import { Blockchain, SandboxContract, TreasuryContract } from '@ton-community/sandbox';
-import { Cell, toNano } from 'ton-core';
-import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
-import '@ton-community/test-utils';
-import { compile } from '@ton-community/blueprint';
+import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
+import { Cell, toNano } from "ton-core";
+import { SubscriptionMaster } from "../wrappers/SubscriptionMaster";
+import "@ton-community/test-utils";
+import { compile } from "@ton-community/blueprint";
 
-describe('SubscriptionMaster', () => {
-    let deployer: SandboxContract<TreasuryContract>;
+describe("SubscriptionMaster", () => {
+    let manager: SandboxContract<TreasuryContract>;
     let blockchain: Blockchain;
     let subscriptionMasterCode: Cell;
     let subscriptionCode: Cell;
@@ -21,12 +21,12 @@ describe('SubscriptionMaster', () => {
             SubscriptionMaster.createFromConfig(0n, subscriptionMasterCode)
         );
 
-        deployer = await blockchain.treasury('deployer');
+        manager = await blockchain.treasury("deployer");
     });
 
     it("should deploy", async () => {
         const deployResult = await subscriptionMaster.sendDeploy(
-            deployer.getSender(),
+            manager.getSender(),
             toNano('0.05'),
             SubscriptionMaster.createSubscriptionMasterInitMsgContent(
                 0n,
@@ -34,7 +34,7 @@ describe('SubscriptionMaster', () => {
                     name: "SubscriptionMasterTest",
                     description: "Unit test deployment"
                 },
-                deployer.getSender().address,
+                manager.getSender().address,
                 toNano("15"),
                 toNano("5"),
                 2630000n,
@@ -43,10 +43,15 @@ describe('SubscriptionMaster', () => {
         );
 
         expect(deployResult.transactions).toHaveTransaction({
-            from: deployer.address,
+            from: manager.address,
             to: subscriptionMaster.address,
             deploy: true,
             success: true,
         });
+    });
+
+    it("Check post-init data", async () => {
+        const data = await subscriptionMaster.getSubscriptionMasterData()
+        console.log(data);
     });
 });

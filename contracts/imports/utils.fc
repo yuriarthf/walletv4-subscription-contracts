@@ -11,7 +11,7 @@ builder calculate_address_from_stateinit(int wc, cell state_init) {
     return begin_cell()
         .store_uint(4, 3)
         .store_uint(wc, 32)
-        .store_slice(cell_hash(state_init));
+        .store_uint(cell_hash(state_init), 256);
 }
 
 () force_chain(int wc, slice address) impure {

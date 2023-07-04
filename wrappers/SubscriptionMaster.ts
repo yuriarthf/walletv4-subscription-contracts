@@ -242,7 +242,7 @@ export class SubscriptionMaster implements Contract {
         return await provider.get("get_subscription_code_hash", []);
     }
 
-    async getSubscriptionManagerData(provider: ContractProvider) {
+    async getSubscriptionMasterData(provider: ContractProvider) {
         return await provider.get("get_subscription_master_data", []);
     }
 
