@@ -179,7 +179,24 @@ export class Subscription implements Contract {
     }
 
     async getSubscriptionData(provider: ContractProvider) {
-        return await provider.get("get_subscription_data", []);
+        const data = await provider.get("get_subscription_data", []);
+        const stack = data.stack;
+        
+        return {
+            subscriptionMaster: stack.readAddress(),
+            owner: stack.readAddress(),
+            manager: stack.readAddress(),
+            activationFee: stack.readBigNumber(),
+            fee: stack.readBigNumber(),
+            period: stack.readBigNumber(),
+            lastPaid: stack.readBigNumber(),
+            activated: stack.readBoolean()
+        }
+    }
+
+    async getBalance(provider: ContractProvider) {
+        const currentState = await provider.getState();
+        return currentState.balance;
     }
 
     async getSubscriptionMaster(provider: ContractProvider) {

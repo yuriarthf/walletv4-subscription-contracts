@@ -1,16 +1,16 @@
-cell assemble_stateinit(cell code, cell data) {
+cell assemble_stateinit(cell code, cell data) inline {
     return begin_cell()
         .store_uint(0, 2)
-        .store_ref(code)
-        .store_ref(data)
+        .store_dict(code)
+        .store_dict(data)
         .store_uint(0, 1)
     .end_cell();
 }
 
-builder calculate_address_from_stateinit(int wc, cell state_init) {
+builder calculate_address_from_stateinit(int wc, cell state_init) inline {
     return begin_cell()
         .store_uint(4, 3)
-        .store_uint(wc, 32)
+        .store_int(wc, 8)
         .store_uint(cell_hash(state_init), 256);
 }
 

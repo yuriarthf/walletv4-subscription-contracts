@@ -138,7 +138,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     reply_init(query_id, sender_addr);
 }
 
-() subscribe(slice sender_addr, int query_id, int msg_value, slice msg_body_content) impure inline {
+() subscribe(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
     force_chain(WORKCHAIN_ID, sender_addr);
 
@@ -213,7 +213,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     load_data(); ;; load storage variables
 
     if (op == op::subscribe) {
-        subscribe(sender_addr, query_id, msg_value, in_msg_body);
+        subscribe(sender_addr, query_id, in_msg_body);
         return ();
     }
 
@@ -261,6 +261,11 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 slice get_manager() method_id {
     load_data();
     return storage::manager;
+}
+
+int get_subscription_number() method_id {
+    load_data();
+    return storage::subscription_number;
 }
 
 int get_subscription_code_hash() method_id {

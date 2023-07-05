@@ -1,6 +1,7 @@
 import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
 import { Cell, beginCell, toNano } from "ton-core";
 import { SubscriptionMaster, assembleSubscriptionMetadata } from "../wrappers/SubscriptionMaster";
+import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
 
@@ -10,6 +11,7 @@ import { compile } from "@ton-community/blueprint";
 
 describe("SubscriptionMaster", () => {
     let manager: SandboxContract<TreasuryContract>;
+    let user: SandboxContract<TreasuryContract>;
     let blockchain: Blockchain;
     let subscriptionMasterCode: Cell;
     let subscriptionCode: Cell;
@@ -26,16 +28,17 @@ describe("SubscriptionMaster", () => {
     const MIN_TON_RESERVE = 50000000n;
 
     beforeAll(async () => {
+        blockchain = await Blockchain.create();
+
+        manager = await blockchain.treasury("deployer");
+        user = await blockchain.treasury("user");
+
         subscriptionMasterCode = await compile('SubscriptionMaster');
         subscriptionCode = await compile('Subscription');
-
-        blockchain = await Blockchain.create();
 
         subscriptionMaster = blockchain.openContract(
             SubscriptionMaster.createFromConfig(0n, subscriptionMasterCode)
         );
-
-        manager = await blockchain.treasury("deployer");
     });
 
     it("should deploy", async () => {
@@ -147,5 +150,43 @@ describe("SubscriptionMaster", () => {
         );
 
         expect(await subscriptionMaster.getManager()).toEqualAddress(manager.address);
+    });
+
+    it("op::subscribe", async () => {
+        const prevSubscriptionNumber = await subscriptionMaster.getSubscriptionNumber();
+
+        await subscriptionMaster.sendSubscribe(
+            user.getSender(),
+            toNano("1.5"),
+            0n
+        );
+
+        expect(await subscriptionMaster.getSubscriptionNumber()).toEqual(prevSubscriptionNumber + 1n);
+
+        const subscriptionAddr = await subscriptionMaster.getUserSubscription(user.address);
+
+        const subscription = blockchain.openContract(Subscription.createFromAddress(subscriptionAddr));
+
+        expect(await subscription.getBalance()).toEqual(MIN_TON_RESERVE);
+
+        const subscriptionData = await subscription.getSubscriptionData();
+
+        const expectedResult = {
+            subscriptionMaster: subscriptionMaster.address,
+            owner: user.address,
+            manager: manager.address,
+            activationFee: SUBSCRIPTION_FEE,
+            fee: PERIODIC_FEE,
+            period: FEE_PERIOD,
+            activated: false
+        }
+
+        expect(subscriptionData.subscriptionMaster).toEqualAddress(expectedResult.subscriptionMaster);
+        expect(subscriptionData.owner).toEqualAddress(expectedResult.owner);
+        expect(subscriptionData.manager).toEqualAddress(expectedResult.manager);
+        expect(subscriptionData.activationFee).toEqual(expectedResult.activationFee);
+        expect(subscriptionData.fee).toEqual(expectedResult.fee);
+        expect(subscriptionData.period).toEqual(expectedResult.period);
+        expect(subscriptionData.activated).toEqual(expectedResult.activated)
     });
 });

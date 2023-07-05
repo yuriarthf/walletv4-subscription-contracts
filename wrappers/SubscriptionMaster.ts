@@ -8,6 +8,7 @@ import {
     ContractProvider,
     Sender,
     SendMode,
+    TupleBuilder,
 } from 'ton-core';
 
 import { sha256_sync } from "ton-crypto";
@@ -261,6 +262,12 @@ export class SubscriptionMaster implements Contract {
         return await provider.get("get_subscription_code_hash", []);
     }
 
+    async getSubscriptionNumber(provider: ContractProvider): Promise<bigint> {
+        const data = await provider.get("get_subscription_number", []);
+
+        return data.stack.readBigNumber();
+    }
+
     async getSubscriptionMasterData(provider: ContractProvider) {
         const data = await provider.get("get_subscription_master_data", []);
         const stack = data.stack;
@@ -299,7 +306,10 @@ export class SubscriptionMaster implements Contract {
         return await provider.get("get_subscription_metadata", []);
     }
 
-    async getUserSubscription(provider: ContractProvider) {
-        return await provider.get("get_user_subscription", []);
+    async getUserSubscription(provider: ContractProvider, user: Address): Promise<Address> {
+        const input = new TupleBuilder();
+        input.writeAddress(user);
+        const data = await provider.get("get_user_subscription", input.build());
+        return data.stack.readAddress();
     }
 }
