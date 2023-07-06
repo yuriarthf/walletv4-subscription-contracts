@@ -1,19 +1,48 @@
 import {
     Blockchain,
     SandboxContract,
-    TreasuryContract,
-    
+    TreasuryContract
 } from "@ton-community/sandbox";
-import { Cell, beginCell, toNano, SendMode } from "ton-core";
-import { mnemonicNew, mnemonicToPrivateKey } from "ton-crypto"
+import { Cell, beginCell, toNano, SendMode, Address } from "ton-core";
+import { mnemonicNew, mnemonicToPrivateKey, sign, KeyPair } from "ton-crypto"
 import { WalletContractV4 } from "ton";
 import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
 
-(BigInt.prototype as any).toJSON = function () {
-    return this.toString();
-};
+(BigInt.prototype as any).toJSON = function() { return this.toString() }
+
+interface InstallPluginParams {
+    seqno: number;
+    walletId: number;
+    pluginAddress: Address;
+    value?: bigint,
+    queryId?: bigint;
+    secretKey: Buffer;
+    timeout?: bigint;
+}
+
+function createWalletInstallPlugin(args: InstallPluginParams): Cell {
+    let signingMessage = beginCell()
+        .storeUint(args.walletId, 32);
+    if (args.seqno === 0) {
+        signingMessage.storeUint(0xffff_ffff, 32);
+    }
+    else {
+        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+    }
+    signingMessage.storeUint(args.seqno, 32);
+    signingMessage.storeUint(2, 8); // Install Plugin
+    signingMessage.storeAddress(args.pluginAddress);
+    signingMessage.storeCoins(args.value ?? 0);
+    signingMessage.storeUint(args.queryId ?? 0, 64);
+    
+    const signature = sign(signingMessage.endCell().hash(), args.secretKey);
+    return beginCell()
+        .storeBuffer(signature)
+        .storeBuilder(signingMessage)
+    .endCell();
+}
 
 describe("Subscription", () => {
     let subscriptionMasterMock: SandboxContract<TreasuryContract>;
@@ -22,6 +51,7 @@ describe("Subscription", () => {
     let blockchain: Blockchain;
     let subscriptionCode: Cell;
     let subscription: SandboxContract<Subscription>;
+    let ownerKeyPair: KeyPair;
 
     const ACTIVATION_FEE = toNano("15");
     const FEE = toNano("5");
@@ -39,10 +69,10 @@ describe("Subscription", () => {
         const ownerDonator = await blockchain.treasury("ownerDonator");
 
         const mnemonic = await mnemonicNew();
-        const keyPair = await mnemonicToPrivateKey(mnemonic);
+        ownerKeyPair = await mnemonicToPrivateKey(mnemonic);
         owner = blockchain.openContract(WalletContractV4.create({
             workchain: WORKCHAIN_ID,
-            publicKey: keyPair.publicKey
+            publicKey: ownerKeyPair.publicKey
         }));
 
         ownerDonator.send({
@@ -101,6 +131,14 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
-        // Under construction
+        await owner.send(createWalletInstallPlugin({
+            seqno: await owner.getSeqno(),
+            walletId: owner.walletId,
+            pluginAddress: subscription.address,
+            value: ACTIVATION_FEE,
+            secretKey: ownerKeyPair.secretKey
+        }));
+
+        expect(await subscription.getIsActivated()).toEqual(true);
     });
 });

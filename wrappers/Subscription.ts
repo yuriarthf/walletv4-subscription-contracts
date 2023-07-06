@@ -199,8 +199,9 @@ export class Subscription implements Contract {
         return currentState.balance;
     }
 
-    async getSubscriptionMaster(provider: ContractProvider) {
-        return await provider.get("get_subscription_master", []);
+    async getSubscriptionMaster(provider: ContractProvider): Promise<Address> {
+        const data = await provider.get("get_subscription_master", []);
+        return data.stack.readAddress();
     }
 
     async getSubscriber(provider: ContractProvider) {
@@ -211,15 +212,16 @@ export class Subscription implements Contract {
         return await provider.get("get_fee_info", []);
     }
 
-    async isPaymentDue(provider: ContractProvider) {
+    async getIsPaymentDue(provider: ContractProvider) {
         return await provider.get("is_payment_due", []);
     }
 
-    async isActivated(provider: ContractProvider) {
-        return await provider.get("is_activated", []);
+    async getIsActivated(provider: ContractProvider): Promise<boolean> {
+        const data = await provider.get("is_activated", []);
+        return data.stack.readBoolean();
     }
 
-    async isFulfilled(provider: ContractProvider) {
+    async getIsFulfilled(provider: ContractProvider) {
         return await provider.get("is_fulfilled", []);
     }
 }
