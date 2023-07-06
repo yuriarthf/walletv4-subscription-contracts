@@ -61,5 +61,19 @@ describe("Subscription", () => {
             deploy: true,
             success: true,
         });
+
+        expect(await subscription.getBalance()).toEqual(MIN_TON_RESERVE);
+    });
+
+    it ("check metadata", async () => {
+        const subscriptionMetadata = await subscription.getSubscriptionData();
+
+        expect(subscriptionMetadata.subscriptionMaster).toEqualAddress(subscriptionMasterMock.address);
+        expect(subscriptionMetadata.owner).toEqualAddress(owner.address);
+        expect(subscriptionMetadata.manager).toEqualAddress(manager.address);
+        expect(subscriptionMetadata.activationFee).toEqual(ACTIVATION_FEE);
+        expect(subscriptionMetadata.fee).toEqual(FEE);
+        expect(subscriptionMetadata.period).toEqual(PERIOD);
+        expect(subscriptionMetadata.activated).toEqual(false);
     });
 });
