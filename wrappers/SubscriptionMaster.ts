@@ -3,6 +3,7 @@ import {
     Dictionary,
     beginCell,
     Cell,
+    Slice,
     Contract,
     contractAddress,
     ContractProvider,
@@ -15,7 +16,7 @@ import { sha256_sync } from "ton-crypto";
 
 
 export type SubscriptionMasterConfig = {
-    name?: string;
+    field?: string;
     description?: string;
     url?: string;
 };
@@ -49,6 +50,32 @@ function toSnakeFormat(str: string): Cell {
     return snakeCell.endCell();
 }
 
+function parseSnakeFormat(snake: Cell): string {
+    let str = "";
+    const snakeSlice = snake.asSlice();
+    str += snakeSlice.loadStringTail();
+
+    const snakeTail = snakeSlice.loadMaybeRef();
+    if (snakeTail) {
+        str += parseSnakeFormat(snakeTail);
+    }
+
+    return str;
+}
+
+function parseMetadataField(metadataDict: Dictionary<Buffer, Cell>, key: string): string | null {
+    let field: string | Cell | Slice | null = metadataDict.get(sha256_sync(key)) ?? null;
+    if (field) {
+        field = (field as Cell).asSlice();
+        const flag = field.loadUint(8);
+        if (flag !== 0) throw new Error("Invalid field format");
+        field = field.loadMaybeRef();
+        if (!field) throw new Error("field should follow flag and follow snake format");
+        field = parseSnakeFormat(field as Cell);
+    }
+    return field;
+}
+
 function assembleSubscriptionMasterInitData(index: bigint): Cell {
     return beginCell()
         .storeUint(index, 256)
@@ -56,7 +83,7 @@ function assembleSubscriptionMasterInitData(index: bigint): Cell {
 }
 
 export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
-    if (config.url && !(config.name || config.description)) {
+    if (config.url && !(config.field || config.description)) {
         return beginCell()
             .storeUint(0x01, 8)
             .storeStringRefTail(config.url)
@@ -68,12 +95,12 @@ export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): 
         Dictionary.Values.Cell()
     );
 
-    if (config.name) {
+    if (config.field) {
         metadata.set(
-            sha256_sync("name"),
+            sha256_sync("field"),
             beginCell()
                 .storeUint(0, 8) // Snake format data
-                .storeRef(toSnakeFormat(config.name))
+                .storeRef(toSnakeFormat(config.field))
             .endCell()
         );
     }
@@ -259,12 +286,12 @@ export class SubscriptionMaster implements Contract {
     }
 
     async getSubscriptionCodeHash(provider: ContractProvider) {
-        return await provider.get("get_subscription_code_hash", []);
+        const data = await provider.get("get_subscription_code_hash", []);
+        return data.stack.readBigNumber();
     }
 
     async getSubscriptionNumber(provider: ContractProvider): Promise<bigint> {
         const data = await provider.get("get_subscription_number", []);
-
         return data.stack.readBigNumber();
     }
 
@@ -302,8 +329,30 @@ export class SubscriptionMaster implements Contract {
         return stack.readAddress();
     }
 
-    async getSubscriptionMetadata(provider: ContractProvider) {
-        return await provider.get("get_subscription_metadata", []);
+    async getSubscriptionMetadata(provider: ContractProvider): Promise<string | {[field: string]: string | null}> {
+        const data = await provider.get("get_subscription_metadata", []);
+        const metadataCell = data.stack.readCell();
+        
+        const metadataSlice = metadataCell.beginParse();
+        const flag = metadataSlice.loadUint(8);
+
+        switch (flag) {
+            case 0:
+                const metadataDict = metadataSlice.loadDict(
+                    Dictionary.Keys.Buffer(32),
+                    Dictionary.Values.Cell()
+                );
+                return {
+                    name: parseMetadataField(metadataDict, "name"),
+                    description: parseMetadataField(metadataDict, "description"),
+                    url: parseMetadataField(metadataDict, "url")
+                }
+            case 1:
+                return metadataSlice.loadStringRefTail();     
+        }
+
+        // this could be changed later by a HttpException
+        throw new Error("Invalid metadata format");
     }
 
     async getUserSubscription(provider: ContractProvider, user: Address): Promise<Address> {
