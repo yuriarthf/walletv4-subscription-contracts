@@ -135,7 +135,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
     save_data();
 
-    reply_init(query_id, sender_addr);
+    reply(query_id, sender_addr, 0, 128);
 }
 
 () subscribe(slice sender_addr, int query_id, slice msg_body_content) impure inline {
@@ -161,7 +161,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     storage::periodic_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
 
-    reply(query_id, sender_addr);
+    reply(query_id, sender_addr, 0, 64);
 
     save_data();
 }
@@ -171,7 +171,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
     storage::manager = msg_body_content~load_msg_addr();
 
-    reply(query_id, sender_addr);
+    reply(query_id, sender_addr, 0, 64);
     
     save_data();
 }

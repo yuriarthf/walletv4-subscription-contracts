@@ -54,7 +54,7 @@ export class Subscription implements Contract {
         activationFee: bigint,
         fee: bigint,
         period: bigint,
-    ) {
+    ): Init {
         return {
             query_id: queryId,
             manager,
@@ -204,16 +204,25 @@ export class Subscription implements Contract {
         return data.stack.readAddress();
     }
 
-    async getSubscriber(provider: ContractProvider) {
-        return await provider.get("get_subscriber", []);
+    async getSubscriber(provider: ContractProvider): Promise<Address> {
+        const data = await provider.get("get_subscriber", []);
+        return data.stack.readAddress();
     }
 
-    async getFeeInfo(provider: ContractProvider) {
-        return await provider.get("get_fee_info", []);
+    async getFeeInfo(provider: ContractProvider): Promise<{[field: string]: bigint}> {
+        const data = await provider.get("get_fee_info", []);
+        const stack = data.stack;
+        return {
+            activationFee: stack.readBigNumber(),
+            fee: stack.readBigNumber(),
+            lastPaid: stack.readBigNumber(),
+            period: stack.readBigNumber()
+        }
     }
 
-    async getIsPaymentDue(provider: ContractProvider) {
-        return await provider.get("is_payment_due", []);
+    async getIsPaymentDue(provider: ContractProvider): Promise<boolean> {
+        const data = await provider.get("is_payment_due", []);
+        return data.stack.readBoolean();
     }
 
     async getIsActivated(provider: ContractProvider): Promise<boolean> {
@@ -221,7 +230,8 @@ export class Subscription implements Contract {
         return data.stack.readBoolean();
     }
 
-    async getIsFulfilled(provider: ContractProvider) {
-        return await provider.get("is_fulfilled", []);
+    async getIsFulfilled(provider: ContractProvider): Promise<boolean> {
+        const data = await provider.get("is_activated", []);
+        return data.stack.readBoolean();
     }
 }

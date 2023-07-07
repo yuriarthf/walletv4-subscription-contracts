@@ -10,8 +10,6 @@ import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
 
-(BigInt.prototype as any).toJSON = function() { return this.toString() }
-
 interface InstallPluginParams {
     seqno: number;
     walletId: number;
@@ -33,7 +31,9 @@ function createWalletInstallPlugin(args: InstallPluginParams): Cell {
     }
     signingMessage.storeUint(args.seqno, 32);
     signingMessage.storeUint(2, 8); // Install Plugin
-    signingMessage.storeAddress(args.pluginAddress);
+    signingMessage.storeInt(args.pluginAddress.workChain, 8);
+    signingMessage.storeBuffer(args.pluginAddress.hash);
+    //signingMessage.storeAddress(args.pluginAddress);
     signingMessage.storeCoins(args.value ?? 0);
     signingMessage.storeUint(args.queryId ?? 0, 64);
     
@@ -75,7 +75,7 @@ describe("Subscription", () => {
             publicKey: ownerKeyPair.publicKey
         }));
 
-        ownerDonator.send({
+        await ownerDonator.send({
             value: 0n,
             to: owner.address,
             sendMode: SendMode.CARRY_ALL_REMAINING_BALANCE 
@@ -90,7 +90,6 @@ describe("Subscription", () => {
                 subscriptionMasterMock.address,
                 owner.address,
                 subscriptionCode,
-                
             )
         );
     });
@@ -98,7 +97,7 @@ describe("Subscription", () => {
     it("should deploy", async () => {
         const deployResult = await subscription.sendDeploy(
             subscriptionMasterMock.getSender(),
-            toNano('0.5'),
+            toNano("0.5"),
             Subscription.createSubscriptionInitMsgContent(
                 0n,
                 manager.address,
@@ -131,13 +130,20 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
-        await owner.send(createWalletInstallPlugin({
+        const activationResult = await owner.send(createWalletInstallPlugin({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
             pluginAddress: subscription.address,
             value: ACTIVATION_FEE,
             secretKey: ownerKeyPair.secretKey
         }));
+
+        expect(activationResult.transactions).toHaveTransaction({
+            from: subscription.address,
+            to: manager.address,
+            success: true,
+            value: ACTIVATION_FEE
+        });
 
         expect(await subscription.getIsActivated()).toEqual(true);
     });

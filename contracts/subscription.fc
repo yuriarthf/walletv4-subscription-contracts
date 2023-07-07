@@ -42,7 +42,7 @@ cell assemble_request_funds_msg(int query_id, int toncoins, cell extra) inline {
 
 cell assemble_collect_fee_msg(int query_id) inline {
     return begin_cell()
-        .store_uint(0x18, 6)
+        .store_uint(0x10, 6)
         .store_slice(storage::manager)
         .store_coins(storage::activation_fee)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
@@ -76,7 +76,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     storage::fee = ds~load_coins();
     storage::period = ds~load_uint(32);
     storage::last_paid = ds~load_uint(32);
-    storage::activated? = ds~load_uint(1);
+    storage::activated? = ds~load_int(1);
 }
 
 () save_data() impure {
@@ -88,7 +88,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
         .store_coins(storage::fee)
         .store_uint(storage::period, 32)
         .store_uint(storage::last_paid, 32)
-        .store_uint(storage::activated?, 1)
+        .store_int(storage::activated?, 1)
     .end_cell());
 }
 
@@ -106,12 +106,12 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
     raw_reserve(MIN_TON_RESERVE, 0);
 
-    reply_init(query_id, storage::owner);
+    reply(query_id, storage::owner, 0, 128);
 
     save_data();
 }
 
-() activate(slice sender_addr, int query_id, int remaining_msg_value) impure inline {
+() activate(slice sender_addr, int query_id, int remaining_msg_value, int save_balance) impure inline {
     throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_if(error::activated, storage::activated?);
 
@@ -120,7 +120,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
     storage::activated? = true;
 
-    reply(query_id, sender_addr);
+    reply(query_id, sender_addr, save_balance, 128);
 
     save_data();
 }
@@ -131,7 +131,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
     storage::activated? = false;
 
-    reply(query_id, sender_addr);
+    reply(query_id, sender_addr, 0, 64);
 
     save_data();
 }
@@ -144,7 +144,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
     storage::manager = new_manager;
 
-    reply(query_id, sender_addr);
+    reply(query_id, sender_addr, 0, 64);
 
     save_data();
 }
@@ -213,7 +213,6 @@ cell assemble_collect_fee_msg(int query_id) inline {
     int flags = cs~load_uint(4);
     slice sender_addr = cs~load_msg_addr();
     if (flags & 1) {
-        ~strdump("BOUNCED");
         if (op == op::request_funds) {
             bounce_request_funds();
         }
@@ -230,7 +229,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     load_data(); ;; load storage variables
 
     if (op == op::activate_subscription) {
-        activate(sender_addr, query_id, msg_value);
+        activate(sender_addr, query_id, msg_value, my_balance - msg_value);
         return ();
     }
 

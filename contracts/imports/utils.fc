@@ -19,30 +19,16 @@ builder calculate_address_from_stateinit(int wc, cell state_init) inline {
     throw_if(error::invalid_workchain, address_wc != wc);
 }
 
-() reply(int query_id, slice sender_addr) impure inline {
+() reply(int query_id, slice sender_addr, int value, int mode) impure inline {
     var msg_body = begin_cell()
         .store_uint(op::excesses, 32)
         .store_uint(query_id, 64);
     var msg = begin_cell()
-        .store_uint(0x18, 6)
+        .store_uint(0x10, 6)
         .store_slice(sender_addr)
-        .store_coins(0)
+        .store_coins(value)
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_builder(msg_body)
     .end_cell();
-    send_raw_message(msg, 64);
-}
-
-() reply_init(int query_id, slice sender_addr) impure inline {
-    var msg_body = begin_cell()
-        .store_uint(op::excesses, 32)
-        .store_uint(query_id, 64);
-    var msg = begin_cell()
-        .store_uint(0x18, 6)
-        .store_slice(sender_addr)
-        .store_coins(0)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_builder(msg_body)
-    .end_cell();
-    send_raw_message(msg, 128);
+    send_raw_message(msg, mode);
 }
