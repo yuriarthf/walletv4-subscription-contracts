@@ -18,7 +18,7 @@ type Maybe<T> = T | null;
 
 
 export type SubscriptionMasterConfig = {
-    field?: string;
+    name?: string;
     description?: string;
     url?: string;
 };
@@ -108,7 +108,7 @@ function assembleSubscriptionMasterInitData(index: bigint): Cell {
 }
 
 export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): Cell {
-    if (config.url && !(config.field || config.description)) {
+    if (config.url && !(config.name || config.description)) {
         return beginCell()
             .storeUint(0x01, 8)
             .storeStringRefTail(config.url)
@@ -120,12 +120,12 @@ export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): 
         Dictionary.Values.Cell()
     );
 
-    if (config.field) {
+    if (config.name) {
         metadata.set(
-            sha256_sync("field"),
+            sha256_sync("name"),
             beginCell()
                 .storeUint(0, 8) // Snake format data
-                .storeRef(toSnakeFormat(config.field))
+                .storeRef(toSnakeFormat(config.name))
             .endCell()
         );
     }
