@@ -275,6 +275,11 @@ slice get_subscriber() method_id {
     return storage::owner;
 }
 
+slice get_manager() method_id {
+    load_data();
+    return storage::manager;
+}
+
 (int, int, int, int) get_fee_info() method_id {
     load_data();
     return (

@@ -148,7 +148,7 @@ describe("Subscription", () => {
         expect(subscriptionMetadata.activationFee).toEqual(ACTIVATION_FEE);
         expect(subscriptionMetadata.fee).toEqual(FEE);
         expect(subscriptionMetadata.period).toEqual(PERIOD);
-        expect(subscriptionMetadata.activated).toEqual(false);
+        expect(subscriptionMetadata.activated).toBeFalsy();
     });
 
     it("op::activate", async () => {
@@ -167,7 +167,8 @@ describe("Subscription", () => {
             value: ACTIVATION_FEE
         });
 
-        expect(await subscription.getIsActivated()).toEqual(true);
+        expect(await subscription.getIsActivated()).toBeTruthy();
+        expect(await subscription.getIsFulfilled()).toBeTruthy();
     });
 
     it("op::request_payment", async () => {
@@ -177,7 +178,7 @@ describe("Subscription", () => {
             0n
         );
 
-        // TODO (nedd to advance blockchain time)
+        // TODO (need to advance blockchain time)
     });
 
     it("op::deactivate", async () => {
@@ -189,6 +190,26 @@ describe("Subscription", () => {
             secretKey: ownerKeyPair.secretKey
         }));
 
-        expect(await subscription.getIsActivated()).toEqual(false);
+        expect(await subscription.getIsActivated()).toBeFalsy();
+    });
+
+    it("op::update_authority", async () => {
+        const newManager = await blockchain.treasury("newManager");
+
+        await subscription.sendUpdateAuthority(
+            subscriptionMasterMock.getSender(),
+            toNano("0.5"),
+            0n,
+            newManager.address
+        );
+
+        expect(await subscription.getManager()).toEqualAddress(newManager.address);
+
+        await subscription.sendUpdateAuthority(
+            subscriptionMasterMock.getSender(),
+            toNano("0.5"),
+            1n,
+            manager.address
+        );
     });
 });

@@ -220,6 +220,11 @@ export class Subscription implements Contract {
         }
     }
 
+    async getManager(provider: ContractProvider): Promise<Address> {
+        const data = await provider.get("get_manager", []);
+        return data.stack.readAddress();
+    }
+
     async getIsPaymentDue(provider: ContractProvider): Promise<boolean> {
         const data = await provider.get("is_payment_due", []);
         return data.stack.readBoolean();
