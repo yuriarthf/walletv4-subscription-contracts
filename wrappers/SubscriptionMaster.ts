@@ -280,12 +280,17 @@ export class SubscriptionMaster implements Contract {
         });
     }
 
-    async getBalance(provider: ContractProvider) {
+    async getID(provider: ContractProvider): Promise<bigint> {
+        const data = await provider.get("get_id", []);
+        return data.stack.readBigNumber();
+    }
+
+    async getBalance(provider: ContractProvider): Promise<bigint> {
         const currentState = await provider.getState();
         return currentState.balance;
     }
 
-    async getSubscriptionCodeHash(provider: ContractProvider) {
+    async getSubscriptionCodeHash(provider: ContractProvider): Promise<bigint> {
         const data = await provider.get("get_subscription_code_hash", []);
         return data.stack.readBigNumber();
     }
@@ -311,7 +316,7 @@ export class SubscriptionMaster implements Contract {
         };
     }
 
-    async getFeeConfig(provider: ContractProvider) {
+    async getFeeConfig(provider: ContractProvider): Promise<{[field: string]: bigint}> {
         const data = await provider.get("get_fee_config", []);
         const stack = data.stack;
 

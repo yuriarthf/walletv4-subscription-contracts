@@ -63,7 +63,7 @@ describe("SubscriptionMaster", () => {
             success: true,
         });
 
-        expect(subscriptionMaster)
+        expect(subscriptionMaster);
     });
 
     it("Check post-init data and balance (=MIN_TON_STORAGE)", async () => {
