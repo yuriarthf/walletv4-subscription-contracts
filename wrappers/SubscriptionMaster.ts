@@ -14,6 +14,8 @@ import {
 
 import { sha256_sync } from "ton-crypto";
 
+type Maybe<T> = T | null;
+
 
 export type SubscriptionMasterConfig = {
     field?: string;
@@ -63,7 +65,7 @@ function parseSnakeFormat(snake: Cell): string {
     return str;
 }
 
-function parseMetadataField(metadataDict: Dictionary<Buffer, Cell>, key: string): string | null {
+function parseMetadataField(metadataDict: Dictionary<Buffer, Cell>, key: string): Maybe<string> {
     let field: string | Cell | Slice | null = metadataDict.get(sha256_sync(key)) ?? null;
     if (field) {
         field = (field as Cell).asSlice();
@@ -74,6 +76,29 @@ function parseMetadataField(metadataDict: Dictionary<Buffer, Cell>, key: string)
         field = parseSnakeFormat(field as Cell);
     }
     return field;
+}
+
+function parseMetadataCell(metadata: Cell): string | {[field: string]: Maybe<string> } {
+    const metadataSlice = metadata.beginParse();
+    const flag = metadataSlice.loadUint(8);
+
+    switch (flag) {
+        case 0:
+            const metadataDict = metadataSlice.loadDict(
+                Dictionary.Keys.Buffer(32),
+                Dictionary.Values.Cell()
+            );
+            return {
+                name: parseMetadataField(metadataDict, "name"),
+                description: parseMetadataField(metadataDict, "description"),
+                url: parseMetadataField(metadataDict, "url")
+            }
+        case 1:
+            return metadataSlice.loadStringRefTail();     
+    }
+
+    // this could be changed later by a HttpException
+    throw new Error("Invalid metadata format");
 }
 
 function assembleSubscriptionMasterInitData(index: bigint): Cell {
@@ -334,30 +359,11 @@ export class SubscriptionMaster implements Contract {
         return stack.readAddress();
     }
 
-    async getSubscriptionMetadata(provider: ContractProvider): Promise<string | {[field: string]: string | null}> {
+    async getSubscriptionMetadata(provider: ContractProvider): Promise<string | {[field: string]: Maybe<string>}> {
         const data = await provider.get("get_subscription_metadata", []);
         const metadataCell = data.stack.readCell();
-        
-        const metadataSlice = metadataCell.beginParse();
-        const flag = metadataSlice.loadUint(8);
 
-        switch (flag) {
-            case 0:
-                const metadataDict = metadataSlice.loadDict(
-                    Dictionary.Keys.Buffer(32),
-                    Dictionary.Values.Cell()
-                );
-                return {
-                    name: parseMetadataField(metadataDict, "name"),
-                    description: parseMetadataField(metadataDict, "description"),
-                    url: parseMetadataField(metadataDict, "url")
-                }
-            case 1:
-                return metadataSlice.loadStringRefTail();     
-        }
-
-        // this could be changed later by a HttpException
-        throw new Error("Invalid metadata format");
+        return parseMetadataCell(metadataCell);
     }
 
     async getUserSubscription(provider: ContractProvider, user: Address): Promise<Address> {

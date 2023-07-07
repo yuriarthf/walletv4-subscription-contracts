@@ -1,13 +1,9 @@
 import { Blockchain, SandboxContract, TreasuryContract } from "@ton-community/sandbox";
-import { Cell, beginCell, toNano } from "ton-core";
+import { Cell, toNano } from "ton-core";
 import { SubscriptionMaster, assembleSubscriptionMetadata } from "../wrappers/SubscriptionMaster";
 import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
-
-(BigInt.prototype as any).toJSON = function () {
-    return this.toString();
-};
 
 describe("SubscriptionMaster", () => {
     let manager: SandboxContract<TreasuryContract>;
