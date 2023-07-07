@@ -10,7 +10,7 @@ import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
 
-interface InstallPluginParams {
+interface PluginParams {
     seqno: number;
     walletId: number;
     pluginAddress: Address;
@@ -20,7 +20,7 @@ interface InstallPluginParams {
     timeout?: bigint;
 }
 
-function createWalletInstallPlugin(args: InstallPluginParams): Cell {
+function createWalletInstallPlugin(args: PluginParams): Cell {
     let signingMessage = beginCell()
         .storeUint(args.walletId, 32);
     if (args.seqno === 0) {
@@ -33,7 +33,29 @@ function createWalletInstallPlugin(args: InstallPluginParams): Cell {
     signingMessage.storeUint(2, 8); // Install Plugin
     signingMessage.storeInt(args.pluginAddress.workChain, 8);
     signingMessage.storeBuffer(args.pluginAddress.hash);
-    //signingMessage.storeAddress(args.pluginAddress);
+    signingMessage.storeCoins(args.value ?? 0);
+    signingMessage.storeUint(args.queryId ?? 0, 64);
+    
+    const signature = sign(signingMessage.endCell().hash(), args.secretKey);
+    return beginCell()
+        .storeBuffer(signature)
+        .storeBuilder(signingMessage)
+    .endCell();
+}
+
+function createWalletRemovePlugin(args: PluginParams): Cell {
+    let signingMessage = beginCell()
+        .storeUint(args.walletId, 32);
+    if (args.seqno === 0) {
+        signingMessage.storeUint(0xffff_ffff, 32);
+    }
+    else {
+        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+    }
+    signingMessage.storeUint(args.seqno, 32);
+    signingMessage.storeUint(3, 8); // Remove Plugin
+    signingMessage.storeInt(args.pluginAddress.workChain, 8);
+    signingMessage.storeBuffer(args.pluginAddress.hash);
     signingMessage.storeCoins(args.value ?? 0);
     signingMessage.storeUint(args.queryId ?? 0, 64);
     
@@ -130,7 +152,7 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
-        const activationResult = await owner.send(createWalletInstallPlugin({
+        const activateResult = await owner.send(createWalletInstallPlugin({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
             pluginAddress: subscription.address,
@@ -138,7 +160,7 @@ describe("Subscription", () => {
             secretKey: ownerKeyPair.secretKey
         }));
 
-        expect(activationResult.transactions).toHaveTransaction({
+        expect(activateResult.transactions).toHaveTransaction({
             from: subscription.address,
             to: manager.address,
             success: true,
@@ -146,5 +168,27 @@ describe("Subscription", () => {
         });
 
         expect(await subscription.getIsActivated()).toEqual(true);
+    });
+
+    it("op::request_payment", async () => {
+        const requestPaymentResult = await subscription.sendRequestPaymentInternal(
+            manager.getSender(),
+            toNano("0.5"),
+            0n
+        );
+
+        // TODO (nedd to advance blockchain time)
+    });
+
+    it("op::deactivate", async () => {
+        await owner.send(createWalletRemovePlugin({
+            seqno: await owner.getSeqno(),
+            walletId: owner.walletId,
+            pluginAddress: subscription.address,
+            value: toNano("0.5"),
+            secretKey: ownerKeyPair.secretKey
+        }));
+
+        expect(await subscription.getIsActivated()).toEqual(false);
     });
 });
