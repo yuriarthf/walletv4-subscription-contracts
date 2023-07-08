@@ -265,6 +265,13 @@ cell assemble_collect_fee_msg(int query_id) inline {
     );
 }
 
+int is_init() method_id {
+    var ds = get_data().begin_parse();
+    ds~load_msg_addr();
+    ds~load_msg_addr();
+    return ~ ds.slice_empty?();
+}
+
 slice get_subscription_master() method_id {
     load_data();
     return storage::subscription_master;

@@ -310,6 +310,11 @@ export class SubscriptionMaster implements Contract {
         return data.stack.readBigNumber();
     }
 
+    async getIsInit(provider: ContractProvider): Promise<boolean> {
+        const data = await provider.get("is_init", []);
+        return data.stack.readBoolean();
+    }
+
     async getBalance(provider: ContractProvider): Promise<bigint> {
         const currentState = await provider.getState();
         return currentState.balance;

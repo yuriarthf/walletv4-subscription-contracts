@@ -194,6 +194,11 @@ export class Subscription implements Contract {
         }
     }
 
+    async getIsInit(provider: ContractProvider): Promise<boolean> {
+        const data = await provider.get("is_init", []);
+        return data.stack.readBoolean();
+    }
+
     async getBalance(provider: ContractProvider) {
         const currentState = await provider.getState();
         return currentState.balance;
