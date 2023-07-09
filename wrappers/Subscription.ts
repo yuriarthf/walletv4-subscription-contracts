@@ -241,7 +241,7 @@ export class Subscription implements Contract {
     }
 
     async getIsFulfilled(provider: ContractProvider): Promise<boolean> {
-        const data = await provider.get("is_activated", []);
+        const data = await provider.get("is_fulfilled", []);
         return data.stack.readBoolean();
     }
 }
