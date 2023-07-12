@@ -1,5 +1,6 @@
 #include "imports/stdlib.fc";
 #include "imports/op_codes/subscription.fc";
+#include "imports/op_codes/subscription_master.fc";
 #include "imports/op_codes/walletv4.fc";
 #include "imports/errors/subscription.fc";
 #include "imports/utils.fc";
@@ -61,10 +62,26 @@ cell assemble_collect_fee_msg(int query_id) inline {
     .end_cell();
 }
 
+cell assemble_subscription_created_log(int query_id) inline {
+    return begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(storage::subscription_master)
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(op::log_subscription_created, 32)
+        .store_uint(query_id, 64)
+        .store_slice(storage::owner)
+    .end_cell();
+}
+
 ;; Internal Messages
 () collect_activation_fee(int query_id, int remaining_msg_value) impure inline {
     throw_if(error::insufficient_funds, remaining_msg_value < storage::activation_fee);
     send_raw_message(assemble_collect_fee_msg(query_id), 1);
+}
+
+() send_subscription_created_log(int query_id) impure inline {
+    send_raw_message(assemble_subscription_created_log(query_id), 128);
 }
 
 ;; Storage (C4) manipulation functions
@@ -115,7 +132,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
 
     raw_reserve(MIN_TON_RESERVE, 0);
 
-    reply(query_id, storage::owner, 0, 128);
+    send_subscription_created_log(query_id);
 
     save_data();
 }

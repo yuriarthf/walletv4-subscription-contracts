@@ -1,0 +1,2 @@
+;; Subscription Master log codes
+const int log::subscription_created = 1;

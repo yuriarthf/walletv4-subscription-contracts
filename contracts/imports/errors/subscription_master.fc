@@ -2,3 +2,4 @@
 
 ;; SubscriptionMaster error codes
 const int error::out_of_bounds = 103;
+const int error::not_subscription = 104;
