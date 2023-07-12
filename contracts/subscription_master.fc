@@ -46,10 +46,16 @@ cell assemble_subscription_data(slice owner_addr) {
 }
 
 cell assemble_subscription_created_log(int query_id, slice owner_addr) {
+    ;;addr_extern$01 len:(## 9) external_address:(bits len) = MsgAddressExt;
+    builder log_addr = begin_cell()
+        .store_uint(1, 2)
+        .store_uint(32, 9)
+        .store_uint(log::subscription_created, 32);
+
     return begin_cell()
-        .store_uint(0x30, 6)
+        .store_uint(0xC, 4)
+        .store_builder(log_addr)
         .store_uint(0, 64 + 32 + 1)
-        .store_uint(log::subscription_created, 32)
         .store_uint(query_id, 64)
         .store_slice(owner_addr)
     .end_cell();
