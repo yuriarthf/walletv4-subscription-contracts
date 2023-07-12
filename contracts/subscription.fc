@@ -14,7 +14,6 @@
 
 ;; subscription_master: Address of the subscription master associated with this
 ;;  subscription
-;; index: Subscription ID number;
 ;; owner: Subscription owner wallet address
 ;; manager: Receive fees and payments from this subscription
 ;; fee: Fee to be substract by the user periodically
@@ -23,7 +22,6 @@
 ;; last_paid: Unix timestamp of the last payment
 ;; activated?: Whether the subscription is activated or not
 global slice storage::subscription_master;
-global int storage::index;
 global slice storage::owner;
 global slice storage::manager;
 global int storage::fee;
@@ -64,7 +62,7 @@ cell assemble_collect_fee_msg(int query_id) inline {
     .end_cell();
 }
 
-cell assemble_subscription_created_log(int query_id, int subscription_number) inline {
+cell assemble_subscription_created_log(int query_id) inline {
     return begin_cell()
         .store_uint(0x10, 6)
         .store_slice(storage::subscription_master)
@@ -72,7 +70,6 @@ cell assemble_subscription_created_log(int query_id, int subscription_number) in
         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
         .store_uint(op::log_subscription_created, 32)
         .store_uint(query_id, 64)
-        .store_uint(subscription_number, 256)
         .store_slice(storage::owner)
     .end_cell();
 }
@@ -83,24 +80,23 @@ cell assemble_subscription_created_log(int query_id, int subscription_number) in
     send_raw_message(assemble_collect_fee_msg(query_id), 1);
 }
 
-() send_subscription_created_log(int query_id, int subscription_number) impure inline {
-    send_raw_message(assemble_subscription_created_log(query_id, subscription_number), 128);
+() send_subscription_created_log(int query_id) impure inline {
+    send_raw_message(assemble_subscription_created_log(query_id), 128);
 }
 
 ;; Storage (C4) manipulation functions
 () load_init_data() impure {
     var ds = get_data().begin_parse();
     storage::subscription_master = ds~load_msg_addr();
-    storage::index = ds~load_uint(256);
+    storage::owner = ds~load_msg_addr();
     throw_unless(error::init_true, ds.slice_empty?());
 }
 
 () load_data() impure {
     var ds = get_data().begin_parse();
     storage::subscription_master = ds~load_msg_addr();
-    storage::index = ds~load_uint(256);
-    throw_if(error::init_false, ds.slice_empty?());
     storage::owner = ds~load_msg_addr();
+    throw_if(error::init_false, ds.slice_empty?());
     storage::manager = ds~load_msg_addr();
     storage::activation_fee = ds~load_coins();
     storage::fee = ds~load_coins();
@@ -127,7 +123,6 @@ cell assemble_subscription_created_log(int query_id, int subscription_number) in
     load_init_data();
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::subscription_master));
 
-    storage::owner = msg_body_content~load_msg_addr();
     storage::manager = msg_body_content~load_msg_addr();
     storage::activation_fee = msg_body_content~load_coins();
     storage::fee = msg_body_content~load_coins();
@@ -137,7 +132,7 @@ cell assemble_subscription_created_log(int query_id, int subscription_number) in
 
     raw_reserve(MIN_TON_RESERVE, 0);
 
-    send_subscription_created_log(query_id, storage::index);
+    send_subscription_created_log(query_id);
 
     save_data();
 }
