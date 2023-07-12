@@ -33,11 +33,11 @@ Lastly, Agora Keeper will maintain the subscriptions, by caching and managing on
 
 ### Build (using npx or yarn)
 
-`[npx/yarn] blueprint build` or `yarn blueprint build`
+`[npx/yarn] blueprint build`
 
 ### Test
 
-`[npx/yarn] blueprint test` or `yarn blueprint test`
+`[npx/yarn] blueprint test`
 
 ### Deploy Subscription Master
 
