@@ -47,8 +47,5 @@ Lastly, Agora Keeper will maintain the subscriptions, by caching and managing on
 
 `npx blueprint create ContractName` or `yarn blueprint create ContractName`
 
-## Architecture
-
-
 # License
 MIT
