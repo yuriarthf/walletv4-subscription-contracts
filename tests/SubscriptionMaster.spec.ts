@@ -31,7 +31,7 @@ describe("SubscriptionMaster", () => {
 
         subscriptionMasterCode = await compile('SubscriptionMaster');
         subscriptionCode = await compile('Subscription');
-
+        
         subscriptionMaster = blockchain.openContract(
             SubscriptionMaster.createFromConfig(0n, subscriptionMasterCode)
         );
@@ -151,7 +151,7 @@ describe("SubscriptionMaster", () => {
     it("op::subscribe", async () => {
         const prevSubscriptionNumber = await subscriptionMaster.getSubscriptionNumber();
 
-        await subscriptionMaster.sendSubscribe(
+        const tx = await subscriptionMaster.sendSubscribe(
             user.getSender(),
             toNano("1.5"),
             0n
@@ -159,7 +159,7 @@ describe("SubscriptionMaster", () => {
 
         expect(await subscriptionMaster.getSubscriptionNumber()).toEqual(prevSubscriptionNumber + 1n);
 
-        const subscriptionAddr = await subscriptionMaster.getUserSubscription(user.address);
+        const subscriptionAddr = await subscriptionMaster.getSubscription(0n);
 
         const subscription = blockchain.openContract(Subscription.createFromAddress(subscriptionAddr));
 
@@ -169,6 +169,7 @@ describe("SubscriptionMaster", () => {
 
         const expectedResult = {
             subscriptionMaster: subscriptionMaster.address,
+            index: 0n,
             owner: user.address,
             manager: manager.address,
             activationFee: SUBSCRIPTION_FEE,
@@ -178,11 +179,12 @@ describe("SubscriptionMaster", () => {
         }
 
         expect(subscriptionData.subscriptionMaster).toEqualAddress(expectedResult.subscriptionMaster);
+        expect(subscriptionData.index).toEqual(expectedResult.index)
         expect(subscriptionData.owner).toEqualAddress(expectedResult.owner);
         expect(subscriptionData.manager).toEqualAddress(expectedResult.manager);
         expect(subscriptionData.activationFee).toEqual(expectedResult.activationFee);
         expect(subscriptionData.fee).toEqual(expectedResult.fee);
         expect(subscriptionData.period).toEqual(expectedResult.period);
-        expect(subscriptionData.activated).toEqual(expectedResult.activated)
+        expect(subscriptionData.activated).toEqual(expectedResult.activated);
     });
 });

@@ -75,6 +75,8 @@ describe("Subscription", () => {
     let subscription: SandboxContract<Subscription>;
     let ownerKeyPair: KeyPair;
 
+    const SUBSCRIPTION_NUMBER = 0n;
+
     const ACTIVATION_FEE = toNano("15");
     const FEE = toNano("5");
     const PERIOD = 2630000n;
@@ -110,7 +112,7 @@ describe("Subscription", () => {
         subscription = blockchain.openContract(
             Subscription.createFromConfig(
                 subscriptionMasterMock.address,
-                owner.address,
+                SUBSCRIPTION_NUMBER,
                 subscriptionCode,
             )
         );
@@ -122,6 +124,7 @@ describe("Subscription", () => {
             toNano("0.5"),
             Subscription.createSubscriptionInitMsgContent(
                 0n,
+                owner.address,
                 manager.address,
                 ACTIVATION_FEE,
                 FEE,
@@ -143,6 +146,7 @@ describe("Subscription", () => {
         const subscriptionMetadata = await subscription.getSubscriptionData();
 
         expect(subscriptionMetadata.subscriptionMaster).toEqualAddress(subscriptionMasterMock.address);
+        expect(subscriptionMetadata.index).toEqual(SUBSCRIPTION_NUMBER);
         expect(subscriptionMetadata.owner).toEqualAddress(owner.address);
         expect(subscriptionMetadata.manager).toEqualAddress(manager.address);
         expect(subscriptionMetadata.activationFee).toEqual(ACTIVATION_FEE);
