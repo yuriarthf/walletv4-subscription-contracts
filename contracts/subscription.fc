@@ -11,6 +11,15 @@
 
 ;; Storage variables
 
+;; subscription_master: Address of the subscription master associated with this
+;;  subscription
+;; owner: Subscription owner wallet address
+;; manager: Receive fees and payments from this subscription
+;; fee: Fee to be substract by the user periodically
+;; period: Fee payment interval (in seconds)
+;; activation_fee: Fee paid by the user on activation
+;; last_paid: Unix timestamp of the last payment
+;; activated?: Whether the subscription is activated or not
 global slice storage::subscription_master;
 global slice storage::owner;
 global slice storage::manager;
