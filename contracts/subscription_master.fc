@@ -38,14 +38,14 @@ const int MIN_TON_RESERVE = 50000000;
 
 ;; Auxiliary functions
 
-cell assemble_subscription_data(slice owner_addr) {
+cell assemble_subscription_data(int index) {
     return begin_cell()
         .store_slice(my_address())
-        .store_slice(owner_addr)
+        .store_uint(index, 256)
     .end_cell();
 }
 
-cell assemble_subscription_created_log(int query_id, slice owner_addr) {
+cell assemble_subscription_created_log(int query_id, int index, slice owner_addr) {
     ;;addr_extern$01 len:(## 9) external_address:(bits len) = MsgAddressExt;
     builder log_addr = begin_cell()
         .store_uint(1, 2)
@@ -57,16 +57,17 @@ cell assemble_subscription_created_log(int query_id, slice owner_addr) {
         .store_builder(log_addr)
         .store_uint(0, 64 + 32 + 1)
         .store_uint(query_id, 64)
+        .store_uint(index, 256)
         .store_slice(owner_addr)
     .end_cell();
 }
 
-slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
-    var state_init = assemble_stateinit(code, assemble_subscription_data(owner_addr));
+slice calculate_subscription_address(int wc, cell code, int index) {
+    var state_init = assemble_stateinit(code, assemble_subscription_data(index));
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
 
-cell assemble_deploy_and_init_msg(int query_id, cell state_init) inline {
+cell assemble_deploy_and_init_msg(int query_id, cell state_init, slice owner_addr) inline {
     return begin_cell()
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
@@ -75,6 +76,7 @@ cell assemble_deploy_and_init_msg(int query_id, cell state_init) inline {
         .store_ref(state_init)
         .store_uint(op::init, 32)
         .store_uint(query_id, 64)
+        .store_slice(owner_addr)
         .store_slice(storage::manager)
         .store_coins(storage::subscription_fee)
         .store_coins(storage::periodic_fee)
@@ -96,13 +98,13 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
 ;; External Messages
 
-() send_log_subscription_created(int query_id, slice owner_addr) impure inline {
-    send_raw_message(assemble_subscription_created_log(query_id, owner_addr), 1);
+() send_log_subscription_created(int query_id, int index, slice owner_addr) impure inline {
+    send_raw_message(assemble_subscription_created_log(query_id, index, owner_addr), 1);
 }
 
 ;; Internal Messages
-() send_deploy_init_msg(int query_id, cell state_init) impure inline {
-    send_raw_message(assemble_deploy_and_init_msg(query_id, state_init), 64);
+() send_deploy_init_msg(int query_id, cell state_init, slice owner_addr) impure inline {
+    send_raw_message(assemble_deploy_and_init_msg(query_id, state_init, owner_addr), 64);
 }
 
 () send_update_subscription_authority_msg(int query_id, slice subscription_addr) impure inline {
@@ -168,11 +170,11 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     ;; prepare Subscription contract stateinit
     var state_init = assemble_stateinit(
         storage::subscription_code,
-        assemble_subscription_data(sender_addr)
+        assemble_subscription_data(storage::subscription_number)
     );
     storage::subscription_number += 1;
 
-    send_deploy_init_msg(query_id, state_init);
+    send_deploy_init_msg(query_id, state_init, sender_addr);
 
     save_data();
 }
@@ -202,27 +204,28 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 () update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
-    slice owner_addr = msg_body_content~load_msg_addr();
+    int index = msg_body_content~load_uint(256);
     slice subscription_addr = calculate_subscription_address(
         WORKCHAIN_ID,
         storage::subscription_code,
-        owner_addr
+        index
     );
 
     send_update_subscription_authority_msg(query_id, subscription_addr);
 }
 
 () log_subscription_created(slice sender_addr, int query_id, slice msg_body_content) impure inline {
-    var subscription_owner = msg_body_content~load_msg_addr();
+    var subscription_number = msg_body_content~load_uint(256);
     slice user_subscription = calculate_subscription_address(
         WORKCHAIN_ID,
         storage::subscription_code,
-        subscription_owner
+        subscription_number
     );
 
     throw_unless(error::not_subscription, sender_addr.equal_slice_bits(user_subscription));
 
-    send_log_subscription_created(query_id, subscription_owner);
+    slice subscription_owner = msg_body_content~load_msg_addr();
+    send_log_subscription_created(query_id, subscription_number, subscription_owner);
 
     reply(query_id, subscription_owner, 0, 64);
 }
@@ -331,8 +334,7 @@ cell get_subscription_metadata() method_id {
     return storage::metadata;
 }
 
-slice get_user_subscription(slice user_addr) method_id {
-    force_chain(WORKCHAIN_ID, user_addr);
+slice get_subscription(int index) method_id {
     load_data();
-    return calculate_subscription_address(WORKCHAIN_ID, storage::subscription_code, user_addr);
+    return calculate_subscription_address(WORKCHAIN_ID, storage::subscription_code, index);
 }
