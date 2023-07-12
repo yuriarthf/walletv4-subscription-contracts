@@ -31,21 +31,19 @@ Lastly, Agora Keeper will maintain the subscriptions, by caching and managing on
 
 ## How to use
 
-### Build
+### Build (using npx or yarn)
 
-`npx blueprint build` or `yarn blueprint build`
+`[npx/yarn] blueprint build` or `yarn blueprint build`
 
 ### Test
 
-`npx blueprint test` or `yarn blueprint test`
+`[npx/yarn] blueprint test` or `yarn blueprint test`
 
-### Deploy or run another script
+### Deploy Subscription Master
 
-`npx blueprint run` or `yarn blueprint run`
+`[npx/yarn] blueprint run deploySubscriptionMaster [--testnet/--mainnet]`
 
-### Add a new contract
-
-`npx blueprint create ContractName` or `yarn blueprint create ContractName`
+**OBS**: After executing the deploy script, it will be asked interactively which method to use to sign the transaction, tonconnect, tonhub, deeplink or mnemonic.
 
 # License
 MIT
