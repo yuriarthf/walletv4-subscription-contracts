@@ -103,7 +103,7 @@ function parseMetadataCell(metadata: Cell): string | {[field: string]: Maybe<str
 
 function assembleSubscriptionMasterInitData(index: bigint): Cell {
     return beginCell()
-        .storeUint(index, 64)
+        .storeUint(index, 256)
     .endCell();
 }
 
@@ -371,10 +371,10 @@ export class SubscriptionMaster implements Contract {
         return parseMetadataCell(metadataCell);
     }
 
-    async getSubscription(provider: ContractProvider, index: bigint): Promise<Address> {
+    async getUserSubscription(provider: ContractProvider, user: Address): Promise<Address> {
         const input = new TupleBuilder();
-        input.writeNumber(index);
-        const data = await provider.get("get_subscription", input.build());
+        input.writeAddress(user);
+        const data = await provider.get("get_user_subscription", input.build());
         return data.stack.readAddress();
     }
 }

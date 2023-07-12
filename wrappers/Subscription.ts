@@ -9,16 +9,15 @@ import {
     SendMode,
 } from 'ton-core';
 
-function assembleSubscriptionInitData(subscritionMaster: Address, index: bigint): Cell {
+function assembleSubscriptionInitData(subscritionMaster: Address, owner: Address): Cell {
     return beginCell()
         .storeAddress(subscritionMaster)
-        .storeUint(index, 64)
+        .storeAddress(owner)
     .endCell();
 }
 
 export type Init = {
     query_id?: bigint;
-    owner: Address;
     manager: Address;
     activation_fee: bigint;
     fee: bigint;
@@ -40,18 +39,17 @@ export class Subscription implements Contract {
 
     static createFromConfig(
         subscritionMaster: Address,
-        index: bigint,
+        owner: Address,
         code: Cell,
         workchain = 0
     ) {
-        const data = assembleSubscriptionInitData(subscritionMaster, index);
+        const data = assembleSubscriptionInitData(subscritionMaster, owner);
         const init = { code, data };
         return new Subscription(contractAddress(workchain, init), init);
     }
 
     static createSubscriptionInitMsgContent(
         queryId: bigint,
-        owner: Address,
         manager: Address,
         activationFee: bigint,
         fee: bigint,
@@ -59,7 +57,6 @@ export class Subscription implements Contract {
     ): Init {
         return {
             query_id: queryId,
-            owner,
             manager,
             activation_fee: activationFee,
             fee,
@@ -130,7 +127,6 @@ export class Subscription implements Contract {
             body: beginCell()
                 .storeUint(Opcodes.init, 32)
                 .storeUint(content.query_id ?? 0, 64)
-                .storeAddress(content.owner)
                 .storeAddress(content.manager)
                 .storeCoins(content.activation_fee)
                 .storeCoins(content.fee)
@@ -188,7 +184,6 @@ export class Subscription implements Contract {
         
         return {
             subscriptionMaster: stack.readAddress(),
-            index: stack.readBigNumber(),
             owner: stack.readAddress(),
             manager: stack.readAddress(),
             activationFee: stack.readBigNumber(),
@@ -197,11 +192,6 @@ export class Subscription implements Contract {
             lastPaid: stack.readBigNumber(),
             activated: stack.readBoolean()
         }
-    }
-
-    async getID(provider: ContractProvider): Promise<bigint> {
-        const data = await provider.get("get_id", []);
-        return data.stack.readBigNumber();
     }
 
     async getIsInit(provider: ContractProvider): Promise<boolean> {

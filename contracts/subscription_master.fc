@@ -41,7 +41,7 @@ const int MIN_TON_RESERVE = 50000000;
 cell assemble_subscription_data(int index) {
     return begin_cell()
         .store_slice(my_address())
-        .store_uint(index, 64)
+        .store_uint(index, 256)
     .end_cell();
 }
 
@@ -57,7 +57,7 @@ cell assemble_subscription_created_log(int query_id, int index, slice owner_addr
         .store_builder(log_addr)
         .store_uint(0, 64 + 32 + 1)
         .store_uint(query_id, 64)
-        .store_uint(index, 64)
+        .store_uint(index, 256)
         .store_slice(owner_addr)
     .end_cell();
 }
@@ -72,17 +72,15 @@ cell assemble_deploy_and_init_msg(int query_id, cell state_init, slice owner_add
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
         .store_coins(0)
-        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
-        .store_ref(begin_cell()
-            .store_uint(op::init, 32)
-            .store_uint(query_id, 64)
-            .store_slice(owner_addr)
-            .store_slice(storage::manager)
-            .store_coins(storage::subscription_fee)
-            .store_coins(storage::periodic_fee)
-            .store_uint(storage::fee_period, 32)
-        .end_cell())
+        .store_uint(op::init, 32)
+        .store_uint(query_id, 64)
+        .store_slice(owner_addr)
+        .store_slice(storage::manager)
+        .store_coins(storage::subscription_fee)
+        .store_coins(storage::periodic_fee)
+        .store_uint(storage::fee_period, 32)
     .end_cell();
 }
 
@@ -116,17 +114,17 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 ;; Storage (C4) manipulation functions
 () load_init_data() impure {
     var ds = get_data().begin_parse();
-    storage::index = ds~load_uint(64);
+    storage::index = ds~load_uint(256);
     throw_unless(error::init_true, ds.slice_empty?());
 }
 
 () load_data() impure {
     var ds = get_data().begin_parse();
-    storage::index = ds~load_uint(64);
+    storage::index = ds~load_uint(256);
     throw_if(error::init_false, ds.slice_empty?());
     storage::metadata = ds~load_ref();
     storage::manager = ds~load_msg_addr();
-    storage::subscription_number = ds~load_uint(64);
+    storage::subscription_number = ds~load_uint(256);
     storage::subscription_fee = ds~load_coins();
     storage::periodic_fee = ds~load_coins();
     storage::fee_period = ds~load_uint(32);
@@ -135,10 +133,10 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 
 () save_data() impure {
     set_data(begin_cell()
-        .store_uint(storage::index, 64)
+        .store_uint(storage::index, 256)
         .store_ref(storage::metadata)
         .store_slice(storage::manager)
-        .store_uint(storage::subscription_number, 64)
+        .store_uint(storage::subscription_number, 256)
         .store_coins(storage::subscription_fee)
         .store_coins(storage::periodic_fee)
         .store_uint(storage::fee_period, 32)
@@ -206,7 +204,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 () update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
-    int index = msg_body_content~load_uint(64);
+    int index = msg_body_content~load_uint(256);
     slice subscription_addr = calculate_subscription_address(
         WORKCHAIN_ID,
         storage::subscription_code,
@@ -217,7 +215,7 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 }
 
 () log_subscription_created(slice sender_addr, int query_id, slice msg_body_content) impure inline {
-    var subscription_number = msg_body_content~load_uint(64);
+    var subscription_number = msg_body_content~load_uint(256);
     slice user_subscription = calculate_subscription_address(
         WORKCHAIN_ID,
         storage::subscription_code,
