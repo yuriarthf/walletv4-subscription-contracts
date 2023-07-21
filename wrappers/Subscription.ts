@@ -1,3 +1,5 @@
+import { WalletContractV4 } from 'ton';
+import { sign, KeyPair } from 'ton-crypto';
 import {
     Address,
     beginCell,
@@ -7,7 +9,29 @@ import {
     ContractProvider,
     Sender,
     SendMode,
+    toNano
 } from 'ton-core';
+
+interface InstallPluginParams {
+    seqno: number;
+    walletId: number;
+    pluginAddress: Address;
+    activationFee: bigint,
+    gas?: bigint, 
+    queryId?: bigint;
+    secretKey: Buffer;
+    timeout?: bigint;
+}
+
+interface RemovePluginParams {
+    seqno: number;
+    walletId: number;
+    pluginAddress: Address;
+    gas?: bigint,
+    queryId?: bigint;
+    secretKey: Buffer;
+    timeout?: bigint;
+}
 
 function assembleSubscriptionInitData(subscritionMaster: Address, owner: Address): Cell {
     return beginCell()
@@ -64,47 +88,55 @@ export class Subscription implements Contract {
         };
     }
 
-    static createActivateSubscriptionExternalMsgContent(
-        queryId: bigint,
-        value: bigint,
-        signature: bigint,
-        subwalletId: bigint,
-        validUntil: bigint,
-        msgSeqNo: bigint,
-        subscriptionAddress: Address
-    ): Cell {
+    static createWalletInstallPluginExtMsg(args: InstallPluginParams): Cell {
+        // Default gas to 0.1 ton
+        args.gas ?? (args.gas = toNano('0.1'));
+
+        let signingMessage = beginCell()
+            .storeUint(args.walletId, 32);
+        if (args.seqno === 0) {
+            signingMessage.storeUint(0xffff_ffff, 32);
+        }
+        else {
+            signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+        }
+        signingMessage.storeUint(args.seqno, 32);
+        signingMessage.storeUint(2, 8); // Install Plugin
+        signingMessage.storeInt(args.pluginAddress.workChain, 8);
+        signingMessage.storeBuffer(args.pluginAddress.hash);
+        signingMessage.storeCoins(args.activationFee + args.gas);
+        signingMessage.storeUint(args.queryId ?? 0, 64);
+        
+        const signature = sign(signingMessage.endCell().hash(), args.secretKey);
         return beginCell()
-            .storeUint(signature, 512)
-            .storeUint(subwalletId, 32)
-            .storeUint(validUntil, 32)
-            .storeUint(msgSeqNo, 32)
-            .storeUint(2, 32)
-            .storeUint(subscriptionAddress.workChain, 8)
-            .storeBuffer(subscriptionAddress.hash, 32)
-            .storeCoins(value)
-            .storeUint(queryId, 64)
+            .storeBuffer(signature)
+            .storeBuilder(signingMessage)
         .endCell();
     }
 
-    static createDeactivateSubscriptionExternalMsgContent(
-        queryId: bigint,
-        value: bigint,
-        signature: bigint,
-        subwalletId: bigint,
-        validUntil: bigint,
-        msgSeqNo: bigint,
-        subscriptionAddress: Address
-    ): Cell {
+    static createWalletRemovePluginExtMsg(args: RemovePluginParams): Cell {
+        // Default gas to 0.1 ton
+        args.gas ?? (args.gas = toNano('0.1'));
+
+        let signingMessage = beginCell()
+            .storeUint(args.walletId, 32);
+        if (args.seqno === 0) {
+            signingMessage.storeUint(0xffff_ffff, 32);
+        }
+        else {
+            signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+        }
+        signingMessage.storeUint(args.seqno, 32);
+        signingMessage.storeUint(3, 8); // Remove Plugin
+        signingMessage.storeInt(args.pluginAddress.workChain, 8);
+        signingMessage.storeBuffer(args.pluginAddress.hash);
+        signingMessage.storeCoins(args.gas ?? 0);
+        signingMessage.storeUint(args.queryId ?? 0, 64);
+        
+        const signature = sign(signingMessage.endCell().hash(), args.secretKey);
         return beginCell()
-            .storeUint(signature, 512)
-            .storeUint(subwalletId, 32)
-            .storeUint(validUntil, 32)
-            .storeUint(msgSeqNo, 32)
-            .storeUint(2, 32)
-            .storeUint(subscriptionAddress.workChain, 8)
-            .storeBuffer(subscriptionAddress.hash, 32)
-            .storeCoins(value)
-            .storeUint(queryId, 64)
+            .storeBuffer(signature)
+            .storeBuilder(signingMessage)
         .endCell();
     }
 

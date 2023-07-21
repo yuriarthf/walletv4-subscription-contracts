@@ -152,11 +152,11 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
-        const activateResult = await owner.send(createWalletInstallPlugin({
+        const activateResult = await owner.send(Subscription.createWalletInstallPluginExtMsg({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
             pluginAddress: subscription.address,
-            value: ACTIVATION_FEE,
+            activationFee: ACTIVATION_FEE,
             secretKey: ownerKeyPair.secretKey
         }));
 
