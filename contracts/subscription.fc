@@ -123,6 +123,7 @@ cell assemble_subscription_created_log(int query_id) inline {
     load_init_data();
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::subscription_master));
 
+    msg_body_content~load_msg_addr();
     storage::manager = msg_body_content~load_msg_addr();
     storage::activation_fee = msg_body_content~load_coins();
     storage::fee = msg_body_content~load_coins();

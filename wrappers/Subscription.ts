@@ -158,6 +158,7 @@ export class Subscription implements Contract {
             body: beginCell()
                 .storeUint(Opcodes.init, 32)
                 .storeUint(content.query_id ?? 0, 64)
+                .storeAddress(via.address)
                 .storeAddress(content.manager)
                 .storeCoins(content.activation_fee)
                 .storeCoins(content.fee)

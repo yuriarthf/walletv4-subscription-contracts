@@ -1,6 +1,7 @@
 #include "imports/stdlib.fc";
 #include "imports/op_codes/subscription_master.fc";
 #include "imports/op_codes/subscription.fc";
+#include "imports/op_codes/walletv4.fc";
 #include "imports/errors/subscription_master.fc";
 #include "imports/logs/subscription_master.fc";
 #include "imports/utils.fc";
@@ -66,19 +67,28 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
 
-cell assemble_deploy_and_init_msg(int query_id, cell state_init) inline {
+cell assemble_deploy_and_init_msg(int query_id, slice owner_addr) inline {
+    ;; prepare Subscription contract stateinit
+    var state_init = assemble_stateinit(
+        storage::subscription_code,
+        assemble_subscription_data(owner_addr)
+    );
+
     return begin_cell()
         .store_uint(0x18, 6)
         .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
         .store_coins(0)
-        .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
         .store_ref(state_init)
-        .store_uint(op::init, 32)
-        .store_uint(query_id, 64)
-        .store_slice(storage::manager)
-        .store_coins(storage::subscription_fee)
-        .store_coins(storage::periodic_fee)
-        .store_uint(storage::fee_period, 32)
+        .store_ref(begin_cell()
+            .store_uint(op::init, 32)
+            .store_uint(query_id, 64)
+            .store_slice(owner_addr)
+            .store_slice(storage::manager)
+            .store_coins(storage::subscription_fee)
+            .store_coins(storage::periodic_fee)
+            .store_uint(storage::fee_period, 32)
+        .end_cell())
     .end_cell();
 }
 
@@ -94,6 +104,17 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     .end_cell();
 }
 
+cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
+    return begin_cell()
+        .store_uint(0x10, 6)
+        .store_slice(owner_addr)
+        .store_coins(0)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_uint(op::subscription_failed, 32)
+        .store_uint(query_id, 64)
+    .end_cell();
+}
+
 ;; External Messages
 
 () send_log_subscription_created(int query_id, slice owner_addr) impure inline {
@@ -101,12 +122,16 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
 }
 
 ;; Internal Messages
-() send_deploy_init_msg(int query_id, cell state_init) impure inline {
-    send_raw_message(assemble_deploy_and_init_msg(query_id, state_init), 64);
+() send_deploy_init_msg(int query_id, slice owner_addr) impure inline {
+    send_raw_message(assemble_deploy_and_init_msg(query_id, owner_addr), 64);
 }
 
 () send_update_subscription_authority_msg(int query_id, slice subscription_addr) impure inline {
     send_raw_message(assemble_update_authority_msg(query_id, subscription_addr), 64);
+}
+
+() send_subscription_failed_msg(int query_id, slice owner_addr) impure inline {
+    send_raw_message(assemble_subscription_failed_msg(query_id, owner_addr), 64);
 }
 
 ;; Storage (C4) manipulation functions
@@ -165,14 +190,8 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
     force_chain(WORKCHAIN_ID, sender_addr);
 
-    ;; prepare Subscription contract stateinit
-    var state_init = assemble_stateinit(
-        storage::subscription_code,
-        assemble_subscription_data(sender_addr)
-    );
+    send_deploy_init_msg(query_id, sender_addr);
     storage::subscription_number += 1;
-
-    send_deploy_init_msg(query_id, state_init);
 
     save_data();
 }
@@ -227,20 +246,34 @@ cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline
     reply(query_id, subscription_owner, 0, 64);
 }
 
+;; Bounce handlers
+() bounce_init(int query_id, slice msg_body_content) impure inline {
+    storage::subscription_number -= 1;
+
+    send_subscription_failed_msg(query_id, msg_body_content~load_msg_addr());
+
+    save_data();
+}
+
 ;; recv_internal is the main function of the contract and is called when it receives a message from other contracts
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     if (in_msg_body.slice_empty?()) { ;; receive ton transfers (simple transfer without message)
         return ();
     }
 
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
-    if (flags & 1) { ;; ignore all bounced messages (just receive excedents)
+    if (flags & 1) {
+        if (op == op::init) {
+            bounce_init(query_id, in_msg_body);
+            return ();
+        }
         return ();
     }
 
-    int op = in_msg_body~load_uint(32); ;; by convention, the first 32 bits of incoming message is the op
-    int query_id = in_msg_body~load_uint(64); ;; also by convention, the next 64 bits contain the "query id", although this is not always the case
     slice sender_addr = cs~load_msg_addr();
 
     if (op == op::init) {

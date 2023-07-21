@@ -183,6 +183,6 @@ describe("SubscriptionMaster", () => {
         expect(subscriptionData.activationFee).toEqual(expectedResult.activationFee);
         expect(subscriptionData.fee).toEqual(expectedResult.fee);
         expect(subscriptionData.period).toEqual(expectedResult.period);
-        expect(subscriptionData.activated).toEqual(expectedResult.activated)
+        expect(subscriptionData.activated).toEqual(expectedResult.activated);
     });
 });

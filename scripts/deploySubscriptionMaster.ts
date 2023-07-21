@@ -7,8 +7,8 @@ const METADATA = {
     name: "AgoraTTS",
     description: "AI module which converts text to speech"
 };
-const SUBSCRIPTION_FEE = toNano("15");
-const PERIODIC_FEE = toNano("5");
+const SUBSCRIPTION_FEE = toNano("0.5");
+const PERIODIC_FEE = toNano("0.1");
 const FEE_PERIOD = 2630000n;
 
 export async function run(provider: NetworkProvider) {
