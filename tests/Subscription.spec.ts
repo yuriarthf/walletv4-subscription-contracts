@@ -20,52 +20,6 @@ interface PluginParams {
     timeout?: bigint;
 }
 
-function createWalletInstallPlugin(args: PluginParams): Cell {
-    let signingMessage = beginCell()
-        .storeUint(args.walletId, 32);
-    if (args.seqno === 0) {
-        signingMessage.storeUint(0xffff_ffff, 32);
-    }
-    else {
-        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
-    }
-    signingMessage.storeUint(args.seqno, 32);
-    signingMessage.storeUint(2, 8); // Install Plugin
-    signingMessage.storeInt(args.pluginAddress.workChain, 8);
-    signingMessage.storeBuffer(args.pluginAddress.hash);
-    signingMessage.storeCoins(args.value ?? 0);
-    signingMessage.storeUint(args.queryId ?? 0, 64);
-    
-    const signature = sign(signingMessage.endCell().hash(), args.secretKey);
-    return beginCell()
-        .storeBuffer(signature)
-        .storeBuilder(signingMessage)
-    .endCell();
-}
-
-function createWalletRemovePlugin(args: PluginParams): Cell {
-    let signingMessage = beginCell()
-        .storeUint(args.walletId, 32);
-    if (args.seqno === 0) {
-        signingMessage.storeUint(0xffff_ffff, 32);
-    }
-    else {
-        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
-    }
-    signingMessage.storeUint(args.seqno, 32);
-    signingMessage.storeUint(3, 8); // Remove Plugin
-    signingMessage.storeInt(args.pluginAddress.workChain, 8);
-    signingMessage.storeBuffer(args.pluginAddress.hash);
-    signingMessage.storeCoins(args.value ?? 0);
-    signingMessage.storeUint(args.queryId ?? 0, 64);
-    
-    const signature = sign(signingMessage.endCell().hash(), args.secretKey);
-    return beginCell()
-        .storeBuffer(signature)
-        .storeBuilder(signingMessage)
-    .endCell();
-}
-
 describe("Subscription", () => {
     let subscriptionMasterMock: SandboxContract<TreasuryContract>;
     let owner: SandboxContract<WalletContractV4>;
@@ -182,11 +136,10 @@ describe("Subscription", () => {
     });
 
     it("op::deactivate", async () => {
-        await owner.send(createWalletRemovePlugin({
+        await owner.send(Subscription.createWalletRemovePluginExtMsg({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
             pluginAddress: subscription.address,
-            value: toNano("0.5"),
             secretKey: ownerKeyPair.secretKey
         }));
 

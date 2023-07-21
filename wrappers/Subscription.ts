@@ -1,5 +1,4 @@
-import { WalletContractV4 } from 'ton';
-import { sign, KeyPair } from 'ton-crypto';
+import { sign } from 'ton-crypto';
 import {
     Address,
     beginCell,
