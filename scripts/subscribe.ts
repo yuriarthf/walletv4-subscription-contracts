@@ -1,3 +1,4 @@
+import { toNano } from 'ton-core';
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
 
@@ -7,7 +8,9 @@ export async function run(provider: NetworkProvider) {
         await compile('SubscriptionMaster')
     ));
 
-    console.log("Contract Address: " + subscriptionMaster.address);
-    console.log("Initialized: " + await subscriptionMaster.getIsInit());
-    console.log(await subscriptionMaster.getSubscriptionMasterData());
+    console.log(await subscriptionMaster.sendSubscribe(
+        provider.sender(),
+        toNano('1'),
+        0n
+    ));
 }
