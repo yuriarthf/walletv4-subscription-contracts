@@ -1,8 +1,8 @@
 import { mnemonicToPrivateKey } from 'ton-crypto';
-import { WalletContractV4, Address } from "ton";
+import { WalletContractV4 } from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
-import { compile, NetworkProvider } from '@ton-community/blueprint';
+import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
 import 'dotenv/config';
 
 export async function run(provider: NetworkProvider, args: string[]) {
@@ -20,6 +20,9 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const subscription = provider.open(Subscription.createFromAddress(
         await subscriptionMaster.getUserSubscription(userWalletAddress)
     ));
+
+    if (await subscription.getIsActivated())
+        throw new Error("Subscription is already activated")
 
     console.log("Subscription Address: " + subscription.address);
 
@@ -43,6 +46,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     
     await wallet.send(msg);
 
-    const isActivated = await subscription.getIsActivated();
-    console.log(isActivated ? "Activation successful" : "Activation failed");
+    await sleep(5000);
+
+    console.log(await subscription.getIsActivated() ? "Activation successful" : "Activation failed");
 }

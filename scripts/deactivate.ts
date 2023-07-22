@@ -1,8 +1,8 @@
 import { mnemonicToPrivateKey } from 'ton-crypto';
-import { WalletContractV4, Address } from "ton";
+import { WalletContractV4 } from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
-import { compile, NetworkProvider } from '@ton-community/blueprint';
+import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
 
 export async function run(provider: NetworkProvider, args: string[]) {
     const mnemonic = process.env.WALLET_MNEMONIC ?? (args.length > 0 ? args[0] : undefined);
@@ -20,6 +20,9 @@ export async function run(provider: NetworkProvider, args: string[]) {
         await subscriptionMaster.getUserSubscription(userWalletAddress)
     ));
 
+    if (!(await subscription.getIsActivated()))
+        throw new Error("Subscription is already deactivated")
+
     console.log("Subscription Address: " + subscription.address);
 
     const wallet = provider.open(WalletContractV4.create({
@@ -35,4 +38,17 @@ export async function run(provider: NetworkProvider, args: string[]) {
         pluginAddress: subscription.address,
         secretKey: keyPair.secretKey
     })));
+    
+    const msg = Subscription.createWalletRemovePluginExtMsg({
+        seqno: await wallet.getSeqno(),
+        walletId: wallet.walletId,
+        pluginAddress: subscription.address,
+        secretKey: keyPair.secretKey
+    });
+    
+    await wallet.send(msg);
+
+    await sleep(5000);
+
+    console.log(await subscription.getIsActivated() ? "Deactivation failed" : "Deactivation successful");
 }
