@@ -1,6 +1,7 @@
 import { toNano, Address } from 'ton-core';
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
+import 'dotenv/config';
 
 const MANAGER = Address.parseFriendly("kQC42TWuPKdUKy2yelqDInLUx7atyap9s7cPIV5LZ82XzB5X").address;
 const METADATA = {

@@ -1,6 +1,6 @@
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
+import { Address } from 'ton';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
-import { Address } from 'ton-core';
 
 export async function run(provider: NetworkProvider) {
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(

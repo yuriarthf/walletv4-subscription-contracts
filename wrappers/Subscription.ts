@@ -50,7 +50,9 @@ export type Init = {
 export const Opcodes = {
     init: 0x29c102d1 & 0x7fffffff,
     request_payment: 0xa5d92f79 & 0x7fffffff,
-    update_authority: 0x49697bd2 & 0x7fffffff
+    update_authority: 0x49697bd2 & 0x7fffffff,
+    activate_subscription: 0x6e6f7465,
+    deactivate_subscription: 0x64737472
 };
 
 export class Subscription implements Contract {
@@ -104,6 +106,7 @@ export class Subscription implements Contract {
         signingMessage.storeInt(args.pluginAddress.workChain, 8);
         signingMessage.storeBuffer(args.pluginAddress.hash);
         signingMessage.storeCoins(args.activationFee + args.gas);
+        signingMessage.storeUint(Opcodes.activate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
         
         const signature = sign(signingMessage.endCell().hash(), args.secretKey);
@@ -130,6 +133,7 @@ export class Subscription implements Contract {
         signingMessage.storeInt(args.pluginAddress.workChain, 8);
         signingMessage.storeBuffer(args.pluginAddress.hash);
         signingMessage.storeCoins(args.gas ?? 0);
+        signingMessage.storeUint(Opcodes.deactivate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
         
         const signature = sign(signingMessage.endCell().hash(), args.secretKey);
