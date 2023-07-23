@@ -3,22 +3,12 @@ import {
     SandboxContract,
     TreasuryContract
 } from "@ton-community/sandbox";
-import { Cell, beginCell, toNano, SendMode, Address } from "ton-core";
+import { Cell, toNano, SendMode, Builder } from "ton-core";
 import { mnemonicNew, mnemonicToPrivateKey, sign, KeyPair } from "ton-crypto"
 import { WalletContractV4 } from "ton";
 import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
-
-interface PluginParams {
-    seqno: number;
-    walletId: number;
-    pluginAddress: Address;
-    value?: bigint,
-    queryId?: bigint;
-    secretKey: Buffer;
-    timeout?: bigint;
-}
 
 describe("Subscription", () => {
     let subscriptionMasterMock: SandboxContract<TreasuryContract>;
@@ -106,13 +96,18 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
-        const activateResult = await owner.send(Subscription.createWalletInstallPluginExtMsg({
+        const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
-            pluginAddress: subscription.address,
             activationFee: ACTIVATION_FEE,
-            secretKey: ownerKeyPair.secretKey
-        }));
+        }) as Builder;
+
+        const signature = sign(activateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
+
+
+        const activateResult = await owner.send(
+            Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody)
+        );
 
         expect(activateResult.transactions).toHaveTransaction({
             from: subscription.address,
@@ -136,14 +131,20 @@ describe("Subscription", () => {
     });
 
     it("op::deactivate", async () => {
-        await owner.send(Subscription.createWalletRemovePluginExtMsg({
+        const deactivateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
-            pluginAddress: subscription.address,
-            secretKey: ownerKeyPair.secretKey
-        }));
+        }) as Builder;
+
+        const signature = sign(deactivateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
+
+
+        await owner.send(
+            Subscription.createWalletExtMsgBody(signature, deactivateSubscriptionBody)
+        );
 
         expect(await subscription.getIsActivated()).toBeFalsy();
+        expect(await subscription.getIsFulfilled()).toBeFalsy();
     });
 
     it("op::update_authority", async () => {
