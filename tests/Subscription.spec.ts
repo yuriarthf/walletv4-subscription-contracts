@@ -96,10 +96,12 @@ describe("Subscription", () => {
     });
 
     it("op::activate", async () => {
+        const feeInfo = await subscription.getFeeInfo();
+
         const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
-            activationFee: ACTIVATION_FEE,
+            activationFee: feeInfo.activationFee,
         }) as Builder;
 
         const signature = sign(activateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
