@@ -75,8 +75,8 @@ cell assemble_subscription_created_log(int query_id) inline {
 }
 
 ;; Internal Messages
-() collect_activation_fee(int query_id, int remaining_msg_value) impure inline {
-    throw_if(error::insufficient_funds, remaining_msg_value < storage::activation_fee);
+() collect_activation_fee(int query_id, int remaining_value) impure inline {
+    throw_if(error::insufficient_funds, remaining_value < storage::activation_fee + MIN_TON_RESERVE);
     send_raw_message(assemble_collect_fee_msg(query_id), 1);
 }
 
@@ -138,12 +138,12 @@ cell assemble_subscription_created_log(int query_id) inline {
     save_data();
 }
 
-() activate(slice sender_addr, int query_id, int remaining_msg_value, int save_balance) impure inline {
+() activate(slice sender_addr, int query_id, int remaining_value, int save_balance) impure inline {
     throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_if(error::activated, storage::activated?);
 
     ;; collect activation fee from new user
-    collect_activation_fee(query_id, remaining_msg_value);
+    collect_activation_fee(query_id, remaining_value);
 
     storage::activated? = true;
 
@@ -256,7 +256,7 @@ cell assemble_subscription_created_log(int query_id) inline {
     load_data(); ;; load storage variables
 
     if (op == op::activate_subscription) {
-        activate(sender_addr, query_id, msg_value, my_balance - msg_value);
+        activate(sender_addr, query_id, msg_value, msg_value);
         return ();
     }
 

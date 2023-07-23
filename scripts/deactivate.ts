@@ -1,5 +1,5 @@
-import { mnemonicToPrivateKey } from 'ton-crypto';
-import { WalletContractV4 } from "ton";
+import { mnemonicToPrivateKey, sign } from 'ton-crypto';
+import { WalletContractV4, Builder } from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
 import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
@@ -32,21 +32,14 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
     if (!wallet.address.equals(wallet_address)) throw new Error("Mnemonic doesn't match.");
 
-    console.log(await wallet.send(Subscription.createWalletRemovePluginExtMsg({
+    const activateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
         walletId: wallet.walletId,
-        pluginAddress: subscription.address,
-        secretKey: keyPair.secretKey
-    })));
+    }) as Builder;
+
+    const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);
     
-    const msg = Subscription.createWalletRemovePluginExtMsg({
-        seqno: await wallet.getSeqno(),
-        walletId: wallet.walletId,
-        pluginAddress: subscription.address,
-        secretKey: keyPair.secretKey
-    });
-    
-    await wallet.send(msg);
+    await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
 
     await sleep(5000);
 

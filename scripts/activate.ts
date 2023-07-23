@@ -1,5 +1,5 @@
-import { mnemonicToPrivateKey } from 'ton-crypto';
-import { WalletContractV4 } from "ton";
+import { mnemonicToPrivateKey, sign } from 'ton-crypto';
+import { WalletContractV4, Builder} from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
 import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
@@ -36,17 +36,22 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const feeInfo = await subscription.getFeeInfo();
     console.log("Fee to pay: " + feeInfo.activationFee);
 
-    const msg = Subscription.createWalletInstallPluginExtMsg({
+
+    const timeout = BigInt(Math.floor(Date.now() / 1e3) + 7200);
+    const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
         walletId: wallet.walletId,
-        pluginAddress: subscription.address,
         activationFee: feeInfo.activationFee,
-        secretKey: keyPair.secretKey
-    });
-    
-    await wallet.send(msg);
+        timeout: 1690123469n,
+    }) as Builder;
 
-    await sleep(5000);
+    console.log('timeout: ' + timeout)
+    //const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);
+    const signature = Buffer.from('/aO8liP/QZraobvkifrrW0w0Wq7awWjRbguOEc/0zHPlVAh0ngED6gYO9EcbJSxwkr71HxijJmhwqyNgGdTRAw==', 'base64')
+    console.log('signature: ' + signature.toString('base64'));
+    await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
+
+    await sleep(10000);
 
     console.log(await subscription.getIsActivated() ? "Activation successful" : "Activation failed");
 }
