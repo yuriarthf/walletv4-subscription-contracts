@@ -1,5 +1,5 @@
 import { mnemonicToPrivateKey, sign } from 'ton-crypto';
-import { WalletContractV4, Builder } from "ton";
+import { WalletContractV4, Builder, Address } from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
 import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
@@ -10,9 +10,8 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const wallet_address = provider.sender().address!;
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
-    const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        0n,
-        await compile('SubscriptionMaster')
+    const subscriptionMaster = provider.open(SubscriptionMaster.createFromAddress(
+        Address.parse("EQCOUMSj8lo0H17aBuW-LR08OoyRVav9eoVnRJgZpLlwGWiz")
     ));
 
     const userWalletAddress = provider.sender().address!;
@@ -41,7 +40,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     
     await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
 
-    await sleep(5000);
+    await sleep(10000);
 
     console.log(await subscription.getIsActivated() ? "Deactivation failed" : "Deactivation successful");
 }

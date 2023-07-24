@@ -149,6 +149,33 @@ describe("Subscription", () => {
         expect(await subscription.getIsFulfilled()).toBeFalsy();
     });
 
+    it("op::activate after deactivate", async () => {
+        const feeInfo = await subscription.getFeeInfo();
+
+        const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
+            seqno: await owner.getSeqno(),
+            walletId: owner.walletId,
+            activationFee: feeInfo.activationFee,
+        }) as Builder;
+
+        const signature = sign(activateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
+
+
+        const activateResult = await owner.send(
+            Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody)
+        );
+
+        expect(activateResult.transactions).toHaveTransaction({
+            from: subscription.address,
+            to: manager.address,
+            success: true,
+            value: ACTIVATION_FEE
+        });
+
+        expect(await subscription.getIsActivated()).toBeTruthy();
+        expect(await subscription.getIsFulfilled()).toBeTruthy();
+    });
+
     it("op::update_authority", async () => {
         const newManager = await blockchain.treasury("newManager");
 

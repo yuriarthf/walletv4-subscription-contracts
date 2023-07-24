@@ -36,19 +36,18 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const feeInfo = await subscription.getFeeInfo();
     console.log("Fee to pay: " + feeInfo.activationFee);
 
+    const seqno = await wallet.getSeqno();
+    console.log("seqno: " + seqno);
 
-    const timeout = BigInt(Math.floor(Date.now() / 1e3) + 7200);
     const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
         walletId: wallet.walletId,
-        activationFee: feeInfo.activationFee,
-        timeout: 1690123469n,
+        activationFee: feeInfo.activationFee
     }) as Builder;
 
-    console.log('timeout: ' + timeout)
-    //const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);
-    const signature = Buffer.from('/aO8liP/QZraobvkifrrW0w0Wq7awWjRbguOEc/0zHPlVAh0ngED6gYO9EcbJSxwkr71HxijJmhwqyNgGdTRAw==', 'base64')
+    const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);
     console.log('signature: ' + signature.toString('base64'));
+
     await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
 
     await sleep(10000);

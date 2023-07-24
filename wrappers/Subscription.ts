@@ -96,8 +96,8 @@ export class Subscription implements Contract {
         args: ActivateSubscriptionParams,
         returnBuilder: boolean = true,
     ): Cell | Builder {
-        // Default gas to 0.1 ton
-        args.gas ?? (args.gas = toNano('0.1'));
+        // Default gas to 0.5 ton
+        args.gas ?? (args.gas = toNano('0.5'));
 
         let signingMessage = beginCell()
             .storeUint(args.walletId, 32);
@@ -116,10 +116,9 @@ export class Subscription implements Contract {
         signingMessage.storeUint(Opcodes.activate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
 
-        
-        !returnBuilder && signingMessage.endCell();
+        if (returnBuilder) return signingMessage;
 
-        return signingMessage;
+        return signingMessage.endCell();
     }
 
     createDeactivateSubscriptionExtMsgBody(
