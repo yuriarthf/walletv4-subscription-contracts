@@ -160,7 +160,7 @@ export class Subscription implements Contract {
         signingMessage.storeUint(Opcodes.deactivate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
 
-        !returnBuilder && signingMessage.endCell();
+        if (returnBuilder) return signingMessage;
 
         return signingMessage;
     }
