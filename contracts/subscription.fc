@@ -139,30 +139,6 @@ cell assemble_subscription_created_log(int query_id) inline {
     save_data();
 }
 
-() init_and_activate(slice sender_addr, int query_id, slice msg_body_content, int remaining_value) impure inline {
-    load_init_data();
-    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::subscription_master));
-
-    msg_body_content~load_msg_addr();
-    storage::manager = msg_body_content~load_msg_addr();
-    storage::activation_fee = msg_body_content~load_coins();
-    storage::fee = msg_body_content~load_coins();
-    storage::period = msg_body_content~load_uint(32);
-    storage::last_paid = now();
-    storage::activated? = false;
-
-    raw_reserve(MIN_TON_RESERVE, 0);
-
-    ;; collect activation fee from new user
-    collect_activation_fee(query_id, remaining_value);
-
-    storage::activated? = true;
-    
-    send_subscription_created_log(query_id);
-
-    save_data();
-}
-
 () activate(slice sender_addr, int query_id, int remaining_value) impure inline {
     throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_if(error::activated, storage::activated?);
@@ -276,11 +252,6 @@ cell assemble_subscription_created_log(int query_id) inline {
     ;; full storage, so `load_data` would fail.
     if (op == op::init) {
         init(sender_addr, query_id, in_msg_body);
-        return ();
-    }
-
-    if (op == op::init_and_activate) {
-        init_and_activate(sender_addr, query_id, in_msg_body, msg_value - GAS_USAGE_FACTOR);
         return ();
     }
 

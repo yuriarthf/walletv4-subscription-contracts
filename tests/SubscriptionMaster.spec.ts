@@ -187,42 +187,4 @@ describe("SubscriptionMaster", () => {
         expect(subscriptionData.period).toEqual(expectedResult.period);
         expect(subscriptionData.activated).toEqual(expectedResult.activated);
     });
-
-    it("op::subscribe_and_activate", async () => {
-        const prevSubscriptionCounter = await subscriptionMaster.getSubscriptionCounter();
-
-        const tx = await subscriptionMaster.sendSubscribeAndActivate(
-            user2.getSender(),
-            ACTIVATION_FEE,
-            0n
-        );
-
-        expect(await subscriptionMaster.getSubscriptionCounter()).toEqual(prevSubscriptionCounter + 1n);
-
-        const subscriptionAddr = await subscriptionMaster.getUserSubscription(user2.address);
-
-        const subscription = blockchain.openContract(Subscription.createFromAddress(subscriptionAddr));
-
-        expect(await subscription.getBalance()).toEqual(MIN_TON_RESERVE);
-
-        const subscriptionData = await subscription.getSubscriptionData();
-
-        const expectedResult = {
-            subscriptionMaster: subscriptionMaster.address,
-            owner: user2.address,
-            manager: manager.address,
-            activationFee: ACTIVATION_FEE,
-            fee: PERIODIC_FEE,
-            period: FEE_PERIOD,
-            activated: true
-        }
-
-        expect(subscriptionData.subscriptionMaster).toEqualAddress(expectedResult.subscriptionMaster);
-        expect(subscriptionData.owner).toEqualAddress(expectedResult.owner);
-        expect(subscriptionData.manager).toEqualAddress(expectedResult.manager);
-        expect(subscriptionData.activationFee).toEqual(expectedResult.activationFee);
-        expect(subscriptionData.fee).toEqual(expectedResult.fee);
-        expect(subscriptionData.period).toEqual(expectedResult.period);
-        expect(subscriptionData.activated).toEqual(expectedResult.activated);
-    });
 });

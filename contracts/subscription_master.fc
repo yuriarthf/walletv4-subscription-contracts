@@ -92,31 +92,6 @@ cell assemble_deploy_init_msg(int query_id, slice owner_addr) inline {
     .end_cell();
 }
 
-cell assemble_deploy_init_activate_msg(int query_id, slice owner_addr) inline {
-    ;; prepare Subscription contract stateinit
-    var state_init = assemble_stateinit(
-        storage::subscription_code,
-        assemble_subscription_data(owner_addr)
-    );
-
-    return begin_cell()
-        .store_uint(0x18, 6)
-        .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
-        .store_coins(0)
-        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-        .store_ref(state_init)
-        .store_ref(begin_cell()
-            .store_uint(op::init_and_activate, 32)
-            .store_uint(query_id, 64)
-            .store_slice(owner_addr)
-            .store_slice(storage::manager)
-            .store_coins(storage::activation_fee)
-            .store_coins(storage::periodic_fee)
-            .store_uint(storage::fee_period, 32)
-        .end_cell())
-    .end_cell();
-}
-
 cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline {
     return begin_cell()
         .store_uint(0x18, 6)
@@ -148,10 +123,6 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 ;; Internal Messages
 () send_deploy_init_msg(int query_id, slice owner_addr) impure inline {
     send_raw_message(assemble_deploy_init_msg(query_id, owner_addr), 64);
-}
-
-() send_deploy_init_activate_msg(int query_id, slice owner_addr) impure inline {
-    send_raw_message(assemble_deploy_init_activate_msg(query_id, owner_addr), 64);
 }
 
 () send_update_subscription_authority_msg(int query_id, slice subscription_addr) impure inline {
@@ -219,17 +190,6 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
     force_chain(WORKCHAIN_ID, sender_addr);
 
     send_deploy_init_msg(query_id, sender_addr);
-    storage::subscription_counter += 1;
-
-    save_data();
-}
-
-() subscribe_and_activate(slice sender_addr, int query_id, slice msg_body_content, int msg_value) impure inline {
-    ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
-    force_chain(WORKCHAIN_ID, sender_addr);
-    throw_unless(error::insufficient_funds, msg_value > storage::activation_fee + MAX_GAS_COST);
-
-    send_deploy_init_activate_msg(query_id, sender_addr);
     storage::subscription_counter += 1;
 
     save_data();
@@ -306,7 +266,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
     if (flags & 1) {
-        if ((op == op::init) | (op == op::init_and_activate)) {
+        if (op == op::init) {
             bounce_init(query_id, in_msg_body);
             return ();
         }
@@ -329,11 +289,6 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 
     if (op == op::subscribe) {
         subscribe(sender_addr, query_id, in_msg_body);
-        return ();
-    }
-
-    if (op == op::subscribe_and_activate) {
-        subscribe_and_activate(sender_addr, query_id, in_msg_body, msg_value);
         return ();
     }
 
