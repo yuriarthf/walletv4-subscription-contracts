@@ -19,16 +19,16 @@
 ;; manager:
 ;;      - Change configurations of the SubscriptionMaster contract;
 ;;      - Request payments from Subscriptions and change minor settings in it.
-;; subscription_number: Number of subscriptions
-;; subscription_fee: Fee paid by the user on subscription
+;; subscription_counter: Amount of subscriptions
+;; activation_fee: Fee paid by the user on subscription
 ;; periodic_fee: Fee to be substract by the user periodically
 ;; fee_period: Fee payment interval (in seconds)
 ;; subscription_code: Code cell of the Subscription contract to be minted by the user
 global int storage::index;
 global cell storage::metadata;
 global slice storage::manager;
-global int storage::subscription_number;
-global int storage::subscription_fee;
+global int storage::subscription_counter;
+global int storage::activation_fee;
 global int storage::periodic_fee;
 global int storage::fee_period;
 global cell storage::subscription_code;
@@ -36,9 +36,9 @@ global cell storage::subscription_code;
 ;; Constants
 const int WORKCHAIN_ID = 0;
 const int MIN_TON_RESERVE = 50000000;
+const int MAX_GAS_COST = 10000000; ;; substitute later for GASCOSUMED related estimations
 
 ;; Auxiliary functions
-
 cell assemble_subscription_data(slice owner_addr) {
     return begin_cell()
         .store_slice(my_address())
@@ -67,7 +67,7 @@ slice calculate_subscription_address(int wc, cell code, slice owner_addr) {
     return calculate_address_from_stateinit(wc, state_init).end_cell().begin_parse();
 }
 
-cell assemble_deploy_and_init_msg(int query_id, slice owner_addr) inline {
+cell assemble_deploy_init_msg(int query_id, slice owner_addr) inline {
     ;; prepare Subscription contract stateinit
     var state_init = assemble_stateinit(
         storage::subscription_code,
@@ -85,7 +85,32 @@ cell assemble_deploy_and_init_msg(int query_id, slice owner_addr) inline {
             .store_uint(query_id, 64)
             .store_slice(owner_addr)
             .store_slice(storage::manager)
-            .store_coins(storage::subscription_fee)
+            .store_coins(storage::activation_fee)
+            .store_coins(storage::periodic_fee)
+            .store_uint(storage::fee_period, 32)
+        .end_cell())
+    .end_cell();
+}
+
+cell assemble_deploy_init_activate_msg(int query_id, slice owner_addr) inline {
+    ;; prepare Subscription contract stateinit
+    var state_init = assemble_stateinit(
+        storage::subscription_code,
+        assemble_subscription_data(owner_addr)
+    );
+
+    return begin_cell()
+        .store_uint(0x18, 6)
+        .store_builder(calculate_address_from_stateinit(WORKCHAIN_ID, state_init))
+        .store_coins(0)
+        .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+        .store_ref(state_init)
+        .store_ref(begin_cell()
+            .store_uint(op::init_and_activate, 32)
+            .store_uint(query_id, 64)
+            .store_slice(owner_addr)
+            .store_slice(storage::manager)
+            .store_coins(storage::activation_fee)
             .store_coins(storage::periodic_fee)
             .store_uint(storage::fee_period, 32)
         .end_cell())
@@ -116,14 +141,17 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 }
 
 ;; External Messages
-
 () send_log_subscription_created(int query_id, slice owner_addr) impure inline {
     send_raw_message(assemble_subscription_created_log(query_id, owner_addr), 1);
 }
 
 ;; Internal Messages
 () send_deploy_init_msg(int query_id, slice owner_addr) impure inline {
-    send_raw_message(assemble_deploy_and_init_msg(query_id, owner_addr), 64);
+    send_raw_message(assemble_deploy_init_msg(query_id, owner_addr), 64);
+}
+
+() send_deploy_init_activate_msg(int query_id, slice owner_addr) impure inline {
+    send_raw_message(assemble_deploy_init_activate_msg(query_id, owner_addr), 64);
 }
 
 () send_update_subscription_authority_msg(int query_id, slice subscription_addr) impure inline {
@@ -135,32 +163,32 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 }
 
 ;; Storage (C4) manipulation functions
-() load_init_data() impure {
+() load_init_data() impure inline_ref {
     var ds = get_data().begin_parse();
     storage::index = ds~load_uint(256);
     throw_unless(error::init_true, ds.slice_empty?());
 }
 
-() load_data() impure {
+() load_data() impure inline_ref {
     var ds = get_data().begin_parse();
     storage::index = ds~load_uint(256);
     throw_if(error::init_false, ds.slice_empty?());
     storage::metadata = ds~load_ref();
     storage::manager = ds~load_msg_addr();
-    storage::subscription_number = ds~load_uint(256);
-    storage::subscription_fee = ds~load_coins();
+    storage::subscription_counter = ds~load_uint(256);
+    storage::activation_fee = ds~load_coins();
     storage::periodic_fee = ds~load_coins();
     storage::fee_period = ds~load_uint(32);
     storage::subscription_code = ds~load_ref();
 }
 
-() save_data() impure {
+() save_data() impure inline_ref {
     set_data(begin_cell()
         .store_uint(storage::index, 256)
         .store_ref(storage::metadata)
         .store_slice(storage::manager)
-        .store_uint(storage::subscription_number, 256)
-        .store_coins(storage::subscription_fee)
+        .store_uint(storage::subscription_counter, 256)
+        .store_coins(storage::activation_fee)
         .store_coins(storage::periodic_fee)
         .store_uint(storage::fee_period, 32)
         .store_ref(storage::subscription_code)
@@ -173,8 +201,8 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 
     storage::metadata = msg_body_content~load_ref();
     storage::manager = msg_body_content~load_msg_addr();
-    storage::subscription_number = 0; ;; subscription counter starts at 0
-    storage::subscription_fee = msg_body_content~load_coins();
+    storage::subscription_counter = 0; ;; subscription counter starts at 0
+    storage::activation_fee = msg_body_content~load_coins();
     storage::periodic_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
     storage::subscription_code = msg_body_content~load_ref();
@@ -191,7 +219,18 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
     force_chain(WORKCHAIN_ID, sender_addr);
 
     send_deploy_init_msg(query_id, sender_addr);
-    storage::subscription_number += 1;
+    storage::subscription_counter += 1;
+
+    save_data();
+}
+
+() subscribe_and_activate(slice sender_addr, int query_id, slice msg_body_content, int msg_value) impure inline {
+    ;; sender_addr workchain should be equal to WORKCHAIN_ID constant
+    force_chain(WORKCHAIN_ID, sender_addr);
+    throw_unless(error::insufficient_funds, msg_value > storage::activation_fee + MAX_GAS_COST);
+
+    send_deploy_init_activate_msg(query_id, sender_addr);
+    storage::subscription_counter += 1;
 
     save_data();
 }
@@ -199,7 +238,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 () configure(slice sender_addr, int query_id, slice msg_body_content) impure inline {
     throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
 
-    storage::subscription_fee = msg_body_content~load_coins();
+    storage::activation_fee = msg_body_content~load_coins();
     storage::periodic_fee = msg_body_content~load_coins();
     storage::fee_period = msg_body_content~load_uint(32);
 
@@ -248,7 +287,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 
 ;; Bounce handlers
 () bounce_init(int query_id, slice msg_body_content) impure inline {
-    storage::subscription_number -= 1;
+    storage::subscription_counter -= 1;
 
     send_subscription_failed_msg(query_id, msg_body_content~load_msg_addr());
 
@@ -267,7 +306,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
     if (flags & 1) {
-        if (op == op::init) {
+        if ((op == op::init) | (op == op::init_and_activate)) {
             bounce_init(query_id, in_msg_body);
             return ();
         }
@@ -290,6 +329,11 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 
     if (op == op::subscribe) {
         subscribe(sender_addr, query_id, in_msg_body);
+        return ();
+    }
+
+    if (op == op::subscribe_and_activate) {
+        subscribe_and_activate(sender_addr, query_id, in_msg_body, msg_value);
         return ();
     }
 
@@ -317,8 +361,8 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
         storage::index,
         storage::metadata,
         storage::manager,
-        storage::subscription_number,
-        storage::subscription_fee,
+        storage::subscription_counter,
+        storage::activation_fee,
         storage::periodic_fee,
         storage::fee_period,
         storage::subscription_code
@@ -338,7 +382,7 @@ int get_id() method_id {
 (int, int, int) get_fee_config() method_id {
     load_data();
     return (
-        storage::subscription_fee,
+        storage::activation_fee,
         storage::periodic_fee,
         storage::fee_period
     );
@@ -349,9 +393,9 @@ slice get_manager() method_id {
     return storage::manager;
 }
 
-int get_subscription_number() method_id {
+int get_subscription_counter() method_id {
     load_data();
-    return storage::subscription_number;
+    return storage::subscription_counter;
 }
 
 int get_subscription_code_hash() method_id {

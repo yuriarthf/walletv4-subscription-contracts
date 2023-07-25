@@ -45,6 +45,7 @@ export type Init = {
 
 export const Opcodes = {
     init: 0x29c102d1 & 0x7fffffff,
+    init_and_activate: 0x7d5a4620 & 0x7fffffff,
     request_payment: 0xa5d92f79 & 0x7fffffff,
     update_authority: 0x49697bd2 & 0x7fffffff,
     activate_subscription: 0x6e6f7465,
@@ -168,6 +169,22 @@ export class Subscription implements Contract {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
                 .storeUint(Opcodes.init, 32)
+                .storeUint(content.query_id ?? 0, 64)
+                .storeAddress(via.address)
+                .storeAddress(content.manager)
+                .storeCoins(content.activation_fee)
+                .storeCoins(content.fee)
+                .storeUint(content.period, 32)
+            .endCell(),
+        });
+    }
+
+    async sendInitAndActivate(provider: ContractProvider, via: Sender, activationFee: bigint, content: Init, gas: bigint = toNano('0.2')) {
+        await provider.internal(via, {
+            value: activationFee + gas,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.init_and_activate, 32)
                 .storeUint(content.query_id ?? 0, 64)
                 .storeAddress(via.address)
                 .storeAddress(content.manager)

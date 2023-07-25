@@ -10,6 +10,7 @@ import {
     Sender,
     SendMode,
     TupleBuilder,
+    toNano
 } from 'ton-core';
 
 import { sha256_sync } from "ton-crypto";
@@ -159,6 +160,7 @@ export function assembleSubscriptionMetadata(config: SubscriptionMasterConfig): 
 export const Opcodes = {
     init: 0x29c102d1 & 0x7fffffff,
     subscribe: 0x5fcc3d14 & 0x7fffffff,
+    subscribe_and_activate: 0x95f9ffea & 0x7fffffff,
     configure: 0x9e90e363 & 0x7fffffff,
     change_manager: 0x6780b0d9 & 0x7fffffff,
     update_subscription_authority: 0x944304c1 & 0x7fffffff
@@ -181,7 +183,7 @@ export class SubscriptionMaster implements Contract {
         queryId: bigint,
         config: SubscriptionMasterConfig,
         manager: Address,
-        subscriptionFee: bigint,
+        activationFee: bigint,
         periodicFee: bigint,
         feePeriod: bigint,
         subscriptionCode: Cell
@@ -190,7 +192,7 @@ export class SubscriptionMaster implements Contract {
             query_id: queryId,
             metadata: assembleSubscriptionMetadata(config),
             manager,
-            subscription_fee: subscriptionFee,
+            subscription_fee: activationFee,
             periodic_fee: periodicFee,
             fee_period: feePeriod,
             subscription_code: subscriptionCode
@@ -199,13 +201,13 @@ export class SubscriptionMaster implements Contract {
 
     static formatConfiguration(
         queryId: bigint,
-        subscriptionFee: bigint,
+        activationFee: bigint,
         periodicFee: bigint,
         feePeriod: bigint
     ) {
         return {
             query_id: queryId,
-            subscription_fee: subscriptionFee,
+            subscription_fee: activationFee,
             periodic_fee: periodicFee,
             fee_period: feePeriod
         }
@@ -248,6 +250,17 @@ export class SubscriptionMaster implements Contract {
                 .storeUint(Opcodes.subscribe, 32)
                 .storeUint(queryId ?? 0, 64)
             .endCell(),
+        });
+    }
+
+    async sendSubscribeAndActivate(provider: ContractProvider, via: Sender, activationFee: bigint, queryId?: bigint, gas: bigint = toNano("0.2")) {
+        await provider.internal(via, {
+            value: activationFee + gas,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.subscribe_and_activate, 32)
+                .storeUint(queryId ?? 0, 64)
+            .endCell()
         });
     }
 
@@ -325,8 +338,8 @@ export class SubscriptionMaster implements Contract {
         return data.stack.readBigNumber();
     }
 
-    async getSubscriptionNumber(provider: ContractProvider): Promise<bigint> {
-        const data = await provider.get("get_subscription_number", []);
+    async getSubscriptionCounter(provider: ContractProvider): Promise<bigint> {
+        const data = await provider.get("get_subscription_counter", []);
         return data.stack.readBigNumber();
     }
 
@@ -338,8 +351,8 @@ export class SubscriptionMaster implements Contract {
             index: stack.readBigNumber(),
             metadata: stack.readCell(),
             manager: stack.readAddress(),
-            subscriptionNumber: stack.readBigNumber(),
-            subscriptionFee: stack.readBigNumber(),
+            subscriptionCounter: stack.readBigNumber(),
+            activationFee: stack.readBigNumber(),
             periodicFee: stack.readBigNumber(),
             feePeriod: stack.readBigNumber(),
             subscriptionCode: stack.readCell()
@@ -351,7 +364,7 @@ export class SubscriptionMaster implements Contract {
         const stack = data.stack;
 
         return {
-            subscriptionFee: stack.readBigNumber(),
+            activationFee: stack.readBigNumber(),
             periodicFee: stack.readBigNumber(),
             feePeriod: stack.readBigNumber()
         };

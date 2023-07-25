@@ -2,6 +2,7 @@
 
 ;; SubscriptionMaster OP Codes
 const int op::subscribe = 0x5fcc3d14 & 0x7fffffff;
+const int op::subscribe_and_activate = "op::subscribe_and_activate"c & 0x7fffffff;
 const int op::configure = "op::configure"c & 0x7fffffff;
 const int op::change_manager = "op::change_manager"c & 0x7fffffff;
 const int op::update_subscription_authority = "op::update_subscription_authority"c & 0x7fffffff;

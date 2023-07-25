@@ -39,18 +39,23 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const seqno = await wallet.getSeqno();
     console.log("seqno: " + seqno);
 
+    const timeout = BigInt(Math.floor(Date.now() / 1e3) + 72000);
+    console.log('Timeout: ' + timeout);
     const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
         walletId: wallet.walletId,
         activationFee: feeInfo.activationFee,
+        timeout: timeout
     }) as Builder;
 
     const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);
     console.log('signature: ' + signature.toString('base64'));
 
+    /*
     await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
 
     await sleep(10000);
 
     console.log(await subscription.getIsActivated() ? "Activation successful" : "Activation failed");
+    */
 }
