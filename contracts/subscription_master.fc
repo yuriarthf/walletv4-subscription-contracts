@@ -92,6 +92,24 @@ cell assemble_deploy_init_msg(int query_id, slice owner_addr) inline {
     .end_cell();
 }
 
+cell assemble_deploy_init_activate_msg_body(int query_id, slice owner_addr) inline {
+    ;; prepare Subscription contract stateinit
+    var state_init = assemble_stateinit(
+        storage::subscription_code,
+        assemble_subscription_data(owner_addr)
+    );
+
+    return begin_cell()
+        .store_uint(op::init_and_activate, 32)
+        .store_uint(query_id, 64)
+        .store_slice(owner_addr)
+        .store_slice(storage::manager)
+        .store_coins(storage::activation_fee)
+        .store_coins(storage::periodic_fee)
+        .store_uint(storage::fee_period, 32)
+    .end_cell();
+}
+
 cell assemble_update_authority_msg(int query_id, slice subscription_addr) inline {
     return begin_cell()
         .store_uint(0x18, 6)
@@ -190,7 +208,6 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
     force_chain(WORKCHAIN_ID, sender_addr);
 
     send_deploy_init_msg(query_id, sender_addr);
-    storage::subscription_counter += 1;
 
     save_data();
 }
@@ -240,15 +257,17 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 
     throw_unless(error::not_subscription, sender_addr.equal_slice_bits(user_subscription));
 
+    storage::subscription_counter += 1;
+
     send_log_subscription_created(query_id, subscription_owner);
 
     reply(query_id, subscription_owner, 0, 64);
+
+    save_data();
 }
 
 ;; Bounce handlers
 () bounce_init(int query_id, slice msg_body_content) impure inline {
-    storage::subscription_counter -= 1;
-
     send_subscription_failed_msg(query_id, msg_body_content~load_msg_addr());
 
     save_data();
@@ -361,6 +380,31 @@ int get_subscription_code_hash() method_id {
 cell get_subscription_metadata() method_id {
     load_data();
     return storage::metadata;
+}
+
+cell get_subscribe_and_activate_ext_msg_body(
+    int query_id,
+    int subwallet_id,
+    int valid_until,
+    int seqno,
+    slice owner_addr,
+    int gas
+) method_id {
+    force_chain(WORKCHAIN_ID, owner_addr);
+    load_data();
+    var state_init = assemble_stateinit(storage::subscription_code, assemble_subscription_data(owner_addr));
+    var subscribe_and_activate_msg_body = assemble_deploy_init_activate_msg_body(query_id, owner_addr);
+
+    return begin_cell()
+        .store_uint(subwallet_id, 32)
+        .store_uint(valid_until, 32)
+        .store_uint(seqno, 32)
+        .store_uint(1, 8) ;; deploy and install plugin
+        .store_uint(WORKCHAIN_ID, 8)
+        .store_coins(storage::activation_fee + gas)
+        .store_ref(state_init)
+        .store_ref(subscribe_and_activate_msg_body)
+    .end_cell();
 }
 
 slice get_user_subscription(slice user_addr) method_id {

@@ -3,7 +3,7 @@ import {
     SandboxContract,
     TreasuryContract
 } from "@ton-community/sandbox";
-import { Cell, toNano, SendMode, Builder, beginCell } from "ton-core";
+import { Cell, toNano, SendMode, Builder } from "ton-core";
 import { mnemonicNew, mnemonicToPrivateKey, sign, KeyPair } from "ton-crypto"
 import { WalletContractV4, internal } from "ton";
 import { Subscription } from "../wrappers/Subscription";

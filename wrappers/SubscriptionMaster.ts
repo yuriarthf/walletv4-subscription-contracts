@@ -378,4 +378,30 @@ export class SubscriptionMaster implements Contract {
         const data = await provider.get("get_user_subscription", input.build());
         return data.stack.readAddress();
     }
+
+    async getSubscribeAndActivateExtMsgBody(
+        provider: ContractProvider,
+        queryId: bigint,
+        subwalletId: bigint,
+        seqno: bigint,
+        ownerAddress: Address,
+        validUntil?: bigint,
+        gas: bigint = toNano("0.2")
+    ): Promise<Cell> {
+        if (!validUntil) {
+            validUntil = seqno === 0n 
+                ? 0xffff_ffffn 
+                : BigInt(Math.floor(Date.now() / 1e3) + 60); // 60 seconds
+        }
+        const input = new TupleBuilder();
+        input.writeNumber(queryId)
+        input.writeNumber(subwalletId)
+        input.writeNumber(validUntil)
+        input.writeNumber(seqno)
+        input.writeAddress(ownerAddress)
+        input.writeNumber(gas)
+
+        const data = await provider.get("get_subscribe_and_activate_ext_msg_body", input.build());
+        return data.stack.readCell();
+    }
 }

@@ -2,6 +2,7 @@ import {
     Address,
     beginCell,
     Cell,
+    Slice,
     Builder,
     Contract,
     contractAddress,
@@ -28,6 +29,12 @@ interface DeactivateSubscriptionParams {
     timeout?: bigint;
 }
 
+function getClassName(obj: any) {
+    if (typeof obj === "undefined") return "undefined";
+    if (obj === null) return "null";
+    return obj.constructor.name;
+}
+
 function assembleSubscriptionInitData(subscritionMaster: Address, owner: Address): Cell {
     return beginCell()
         .storeAddress(subscritionMaster)
@@ -45,6 +52,7 @@ export type Init = {
 
 export const Opcodes = {
     init: 0x29c102d1 & 0x7fffffff,
+    init_and_activate: 0xb3c27ace & 0x7fffffff,
     request_payment: 0xa5d92f79 & 0x7fffffff,
     update_authority: 0x49697bd2 & 0x7fffffff,
     activate_subscription: 0x6e6f7465,
@@ -85,11 +93,18 @@ export class Subscription implements Contract {
         };
     }
 
-    static createWalletExtMsgBody(signature: Buffer, signingMessage: Builder) {
-        return beginCell()
+    static createWalletExtMsgBody(signature: Buffer, signingMessage: Cell | Builder | Slice): Cell {
+        var msgBody = beginCell()
             .storeBuffer(signature)
-            .storeBuilder(signingMessage)
-        .endCell();
+        switch (getClassName(signingMessage)) {
+            case "Builder":
+                return msgBody.storeBuilder(<Builder>signingMessage).endCell();
+            case "Cell":
+                return msgBody.storeSlice((<Cell>signingMessage).beginParse()).endCell();
+            case "Slice":
+                return msgBody.storeSlice(<Slice>signingMessage).endCell();
+        }
+        throw new Error("Invalid signingMessage type");
     }
 
     createActivateSubscriptionExtMsgBody(
