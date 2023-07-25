@@ -12,7 +12,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        0n,
+        1n,
         await compile('SubscriptionMaster')
     ));
 
@@ -42,7 +42,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const activateSubscriptionBody = subscription.createActivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
         walletId: wallet.walletId,
-        activationFee: feeInfo.activationFee
+        activationFee: feeInfo.activationFee,
     }) as Builder;
 
     const signature = sign(activateSubscriptionBody.endCell().hash(), keyPair.secretKey);

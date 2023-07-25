@@ -3,9 +3,9 @@ import {
     SandboxContract,
     TreasuryContract
 } from "@ton-community/sandbox";
-import { Cell, toNano, SendMode, Builder } from "ton-core";
+import { Cell, toNano, SendMode, Builder, beginCell } from "ton-core";
 import { mnemonicNew, mnemonicToPrivateKey, sign, KeyPair } from "ton-crypto"
-import { WalletContractV4 } from "ton";
+import { WalletContractV4, internal } from "ton";
 import { Subscription } from "../wrappers/Subscription";
 import "@ton-community/test-utils";
 import { compile } from "@ton-community/blueprint";
@@ -47,6 +47,17 @@ describe("Subscription", () => {
             sendMode: SendMode.CARRY_ALL_REMAINING_BALANCE 
                 + SendMode.DESTROY_ACCOUNT_IF_ZERO,
             bounce: false,
+        });
+
+        await owner.sendTransfer({
+            seqno: await owner.getSeqno(),
+            secretKey: ownerKeyPair.secretKey,
+            messages: [
+                internal({
+                    to: ownerDonator.address,
+                    value: 0n,
+                })
+            ]
         });
 
         subscriptionCode = await compile('Subscription');

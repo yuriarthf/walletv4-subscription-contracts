@@ -32,6 +32,7 @@ global int storage::activated?;
 
 ;; Constants
 const int MIN_TON_RESERVE = 50000000;
+const int GAS_USAGE_FACTOR = 100000000; ;; Later use GASCONSUMED for more accurate results
 
 ;; Auxiliary functions
 int payment_due?() inline {
@@ -76,7 +77,7 @@ cell assemble_subscription_created_log(int query_id) inline {
 
 ;; Internal Messages
 () collect_activation_fee(int query_id, int remaining_value) impure inline {
-    throw_if(error::insufficient_funds, remaining_value < storage::activation_fee + MIN_TON_RESERVE);
+    throw_if(error::insufficient_funds, remaining_value < storage::activation_fee);
     send_raw_message(assemble_collect_fee_msg(query_id), 1);
 }
 
@@ -138,16 +139,17 @@ cell assemble_subscription_created_log(int query_id) inline {
     save_data();
 }
 
-() activate(slice sender_addr, int query_id, int remaining_value, int save_balance) impure inline {
+() activate(slice sender_addr, int query_id, int remaining_value) impure inline {
     throw_unless(error::not_owner, sender_addr.equal_slice_bits(storage::owner));
     throw_if(error::activated, storage::activated?);
 
     ;; collect activation fee from new user
-    collect_activation_fee(query_id, remaining_value);
+    collect_activation_fee(query_id, remaining_value - GAS_USAGE_FACTOR);
 
     storage::activated? = true;
-
-    reply(query_id, sender_addr, save_balance, 128);
+    
+    [int my_balance, _] = get_balance();
+    reply(query_id, sender_addr, my_balance, 128);
 
     save_data();
 }
@@ -256,7 +258,7 @@ cell assemble_subscription_created_log(int query_id) inline {
     load_data(); ;; load storage variables
 
     if (op == op::activate_subscription) {
-        activate(sender_addr, query_id, msg_value, msg_value);
+        activate(sender_addr, query_id, msg_value - GAS_USAGE_FACTOR);
         return ();
     }
 

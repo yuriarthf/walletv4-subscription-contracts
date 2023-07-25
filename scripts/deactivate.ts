@@ -10,8 +10,9 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const wallet_address = provider.sender().address!;
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
-    const subscriptionMaster = provider.open(SubscriptionMaster.createFromAddress(
-        Address.parse("EQCOUMSj8lo0H17aBuW-LR08OoyRVav9eoVnRJgZpLlwGWiz")
+    const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
+        1n,
+        await compile('SubscriptionMaster')
     ));
 
     const userWalletAddress = provider.sender().address!;

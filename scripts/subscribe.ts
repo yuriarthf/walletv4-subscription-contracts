@@ -5,7 +5,7 @@ import 'dotenv/config';
 
 export async function run(provider: NetworkProvider) {
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        0n,
+        1n,
         await compile('SubscriptionMaster')
     ));
 

@@ -125,8 +125,8 @@ export class Subscription implements Contract {
         args: DeactivateSubscriptionParams,
         returnBuilder: boolean = true
     ): Cell | Builder {
-        // Default gas to 0.1 ton
-        args.gas ?? (args.gas = toNano('0.1'));
+        // Default gas to 0.5 ton
+        args.gas ?? (args.gas = toNano('0.5'));
 
         let signingMessage = beginCell()
             .storeUint(args.walletId, 32);
