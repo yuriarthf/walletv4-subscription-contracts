@@ -7,11 +7,10 @@ import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
 export async function run(provider: NetworkProvider, args: string[]) {
     const mnemonic = process.env.WALLET_MNEMONIC ?? (args.length > 0 ? args[0] : undefined);
     if (!mnemonic) throw new Error("Mnemonic should be provided as 'WALLET_MNEMONIC' env or as a script param ");
-    const wallet_address = provider.sender().address!;
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        1n,
+        0n,
         await compile('SubscriptionMaster')
     ));
 
@@ -30,7 +29,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
         publicKey: keyPair.publicKey
     }));
 
-    if (!wallet.address.equals(wallet_address)) throw new Error("Mnemonic doesn't match.");
+    if (!wallet.address.equals(userWalletAddress)) throw new Error("Mnemonic doesn't match.");
 
     const activateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
         seqno: await wallet.getSeqno(),
