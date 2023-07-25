@@ -8,7 +8,7 @@ export async function run(provider: NetworkProvider) {
         await compile('SubscriptionMaster')
     ));
 
-    console.log("Contract Address: " + subscriptionMaster.address);
+    console.log("Subscription Master Address: " + subscriptionMaster.address);
     console.log("Initialized: " + await subscriptionMaster.getIsInit());
     console.log(await subscriptionMaster.getSubscriptionMasterData());
 }
