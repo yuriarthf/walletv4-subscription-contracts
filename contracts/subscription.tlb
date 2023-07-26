@@ -1,1 +1,26 @@
-init#29c102d1 query_id:uint64 = InternalMsgBody;
+// Inbound External Messages
+request_payment#25d92f79 query_id:uint64 = InternalMsgBody
+
+// Inbound Internal Messages
+/// Subscription Master 
+init#29c102d1 query_id:uint64 subscription_owner:MsgAddressInt
+    manager:MsgAddressInt activation_fee:Coins periodic_fee: Coins
+    fee_period:uint32 = InternalMsgBody;
+init_and_activate#33c27ace query_id:uint64 subscription_owner:MsgAddressInt
+    activation_fee:Coins periodic_fee:Coins fee_period:uint32 = InternalMsgBody;
+update_authority#49697bd2 query_id:uint64 manager:MsgAddressInt = InternalMsgBody;
+
+/// Owner Wallet
+activate_subscription#6e6f7465 query_id:uint64 = InternalMsgBody;
+deactivate_subscription#64737472 query_id:uint64 = InternalMsgBody;
+
+/// Manager wallet
+request_payment#25d92f79 query_id:uint64 = InternalMsgBody
+
+// Outbound Internal Messages
+/// Owner Wallet
+request_funds#706c7567 query_id:uint64 toncoins:Coins = InternalMsgBody;
+
+/// Subscription Master
+og_subscription_created#2b5374cd query_id: uint64
+    subscription_owner: MsgAddressInt = InternalMsgBody;

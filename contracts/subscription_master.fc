@@ -213,7 +213,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 }
 
 () configure(slice sender_addr, int query_id, slice msg_body_content) impure inline {
-    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
+    throw_unless(error::not_manager, sender_addr.equal_slice_bits(storage::manager));
 
     storage::activation_fee = msg_body_content~load_coins();
     storage::periodic_fee = msg_body_content~load_coins();
@@ -225,7 +225,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 }
 
 () change_manager(slice sender_addr, int query_id, slice msg_body_content) impure inline {
-    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
+    throw_unless(error::not_manager, sender_addr.equal_slice_bits(storage::manager));
 
     storage::manager = msg_body_content~load_msg_addr();
 
@@ -235,7 +235,7 @@ cell assemble_subscription_failed_msg(int query_id, slice owner_addr) inline {
 }
 
 () update_subscription_authority(slice sender_addr, int query_id, slice msg_body_content) impure inline {
-    throw_unless(error::not_admin, sender_addr.equal_slice_bits(storage::manager));
+    throw_unless(error::not_manager, sender_addr.equal_slice_bits(storage::manager));
 
     slice owner_addr = msg_body_content~load_msg_addr();
     slice subscription_addr = calculate_subscription_address(
