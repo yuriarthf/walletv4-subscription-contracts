@@ -1,9 +1,11 @@
+// Complimentary Types
 text#_ {n:#} data:(SnakeData ~n) = Text;
 snake#00 data:(SnakeData ~n) = ContentData;
 chunks#01 data:ChunkedData = ContentData;
 onchain#00 data:(HashMapE 256 ^ContentData) = FullContent;
 offchain#01 uri:Text = FullContent;
 
+// Inbound Internal Messages
 init#29c102d1 query_id:uint64 
     metadata:FullContent manager:MsgAddressInt
     activation_fee:Coins periodic_fee:Coins
@@ -16,8 +18,22 @@ change_manager#6780b0d9 query_id:uint64
     new_manager:MsgAddressInt = InternalMsgBody;
 update_subscription_authority#144304c1 query_id:uint64
     subscription_owner:MsgAddressInt = InternalMsgBody;
+
+// Outbound Internal Messages
+// Subscription 
+init#29c102d1 query_id:uint64 subscription_owner:MsgAddressInt
+    manager:MsgAddressInt activation_fee:Coins periodic_fee: Coins
+    fee_period:uint32 = InternalMsgBody;
+init_and_activate#33c27ace query_id:uint64 subscription_owner:MsgAddressInt
+    activation_fee:Coins periodic_fee:Coins fee_period:uint32 = InternalMsgBody;
+update_authority#49697bd2 query_id:uint64 manager:MsgAddressInt = InternalMsgBody;
+
+// WalletV4
+excesses#d53276db query_id:uint64 = InternalMsgBody;
+subscription_failed#d5e90791 query_id:uint64 = InternalMsgBody;
+
+// Outbound External Messages
 log_subscription_created#2b5374cd query_id: uint64
     subscription_owner: MsgAddressInt = InternalMsgBody;
-excesses#d53276db query_id:uint64 = InternalMsgBody;
 
 
