@@ -11,7 +11,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        1n,
+        0n,
         await compile('SubscriptionMaster')
     ));
 

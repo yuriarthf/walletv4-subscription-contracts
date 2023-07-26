@@ -15,7 +15,7 @@ const FEE_PERIOD = 2630000n;
 export async function run(provider: NetworkProvider) {
     const subscriptionMaster = provider.open(
         SubscriptionMaster.createFromConfig(
-            1n,
+            0n,
             await compile('SubscriptionMaster')
         )
     );

@@ -1,0 +1,23 @@
+text#_ {n:#} data:(SnakeData ~n) = Text;
+snake#00 data:(SnakeData ~n) = ContentData;
+chunks#01 data:ChunkedData = ContentData;
+onchain#00 data:(HashMapE 256 ^ContentData) = FullContent;
+offchain#01 uri:Text = FullContent;
+
+init#29c102d1 query_id:uint64 
+    metadata:FullContent manager:MsgAddressInt
+    activation_fee:Coins periodic_fee:Coins
+    fee_period:uint32 subscription_code:^Cell
+     = InternalMsgBody;
+subscribe#5fcc3d14 query_id:uint64 = InternalMsgBody;
+configure#1e90e363 query_id:uint64 activation_fee:Coins
+    periodic_fee:Coins fee_period:uint32 = InternalMsgBody;
+change_manager#6780b0d9 query_id:uint64
+    new_manager:MsgAddressInt = InternalMsgBody;
+update_subscription_authority#144304c1 query_id:uint64
+    subscription_owner:MsgAddressInt = InternalMsgBody;
+log_subscription_created#2b5374cd query_id: uint64
+    subscription_owner: MsgAddressInt = InternalMsgBody;
+excesses#d53276db query_id:uint64 = InternalMsgBody;
+
+
