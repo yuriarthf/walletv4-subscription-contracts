@@ -153,9 +153,9 @@ describe("Subscription", () => {
         const signature = sign(deactivateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
 
 
-        console.log(await owner.send(
+        await owner.send(
             Subscription.createWalletExtMsgBody(signature, deactivateSubscriptionBody)
-        ));
+        );
 
         expect(await subscription.getIsActivated()).toBeFalsy();
         expect(await subscription.getIsFulfilled()).toBeFalsy();
