@@ -111,8 +111,8 @@ export class Subscription implements Contract {
         args: ActivateSubscriptionParams,
         returnBuilder: boolean = true,
     ): Cell | Builder {
-        // Default gas to 0.5 ton
-        args.gas ?? (args.gas = toNano('0.5'));
+        // Default gas to 0.2 ton (excesses will return)
+        args.gas ?? (args.gas = toNano('0.2'));
 
         let signingMessage = beginCell()
             .storeUint(args.walletId, 32);
@@ -128,7 +128,6 @@ export class Subscription implements Contract {
         signingMessage.storeInt(this.address.workChain, 8);
         signingMessage.storeBuffer(this.address.hash);
         signingMessage.storeCoins(args.activationFee + args.gas);
-        signingMessage.storeUint(Opcodes.activate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
 
         if (returnBuilder) return signingMessage;
@@ -140,8 +139,8 @@ export class Subscription implements Contract {
         args: DeactivateSubscriptionParams,
         returnBuilder: boolean = true
     ): Cell | Builder {
-        // Default gas to 0.5 ton
-        args.gas ?? (args.gas = toNano('0.5'));
+        // Default gas to 0.2 ton (excesses will return)
+        args.gas ?? (args.gas = toNano('0.2'));
 
         let signingMessage = beginCell()
             .storeUint(args.walletId, 32);
@@ -157,7 +156,6 @@ export class Subscription implements Contract {
         signingMessage.storeInt(this.address.workChain, 8);
         signingMessage.storeBuffer(this.address.hash);
         signingMessage.storeCoins(args.gas);
-        signingMessage.storeUint(Opcodes.deactivate_subscription, 32)
         signingMessage.storeUint(args.queryId ?? 0, 64);
 
         if (returnBuilder) return signingMessage;

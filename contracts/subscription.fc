@@ -86,14 +86,14 @@ cell assemble_subscription_created_log(int query_id) inline {
 }
 
 ;; Storage (C4) manipulation functions
-() load_init_data() impure {
+() load_init_data() impure inline_ref {
     var ds = get_data().begin_parse();
     storage::subscription_master = ds~load_msg_addr();
     storage::owner = ds~load_msg_addr();
     throw_unless(error::init_true, ds.slice_empty?());
 }
 
-() load_data() impure {
+() load_data() impure inline_ref {
     var ds = get_data().begin_parse();
     storage::subscription_master = ds~load_msg_addr();
     storage::owner = ds~load_msg_addr();
@@ -106,7 +106,7 @@ cell assemble_subscription_created_log(int query_id) inline {
     storage::activated? = ds~load_int(1);
 }
 
-() save_data() impure {
+() save_data() impure inline_ref {
     set_data(begin_cell()
         .store_slice(storage::subscription_master)
         .store_slice(storage::owner)
@@ -166,7 +166,7 @@ cell assemble_subscription_created_log(int query_id) inline {
     throw_if(error::activated, storage::activated?);
 
     ;; collect activation fee from new user
-    collect_activation_fee(query_id, remaining_value - GAS_USAGE_FACTOR);
+    collect_activation_fee(query_id, remaining_value);
 
     storage::activated? = true;
     

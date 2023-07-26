@@ -11,7 +11,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const keyPair = await mnemonicToPrivateKey(mnemonic.split(' '));
 
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        0n,
+        1n,
         await compile('SubscriptionMaster')
     ));
 
@@ -52,7 +52,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
     await wallet.send(Subscription.createWalletExtMsgBody(signature, activateSubscriptionBody));
 
-    await sleep(10000);
+    await sleep(15000);
 
     console.log(await subscription.getIsActivated() ? "Activation successful" : "Activation failed");
 }

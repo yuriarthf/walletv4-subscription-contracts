@@ -106,6 +106,16 @@ describe("Subscription", () => {
         expect(subscriptionMetadata.activated).toBeFalsy();
     });
 
+    it("op::request_payment", async () => {
+        const requestPaymentResult = await subscription.sendRequestPaymentInternal(
+            manager.getSender(),
+            toNano("0.5"),
+            0n
+        );
+
+        // TODO (need to advance blockchain time)
+    });
+
     it("op::activate", async () => {
         const feeInfo = await subscription.getFeeInfo();
 
@@ -133,17 +143,8 @@ describe("Subscription", () => {
         expect(await subscription.getIsFulfilled()).toBeTruthy();
     });
 
-    it("op::request_payment", async () => {
-        const requestPaymentResult = await subscription.sendRequestPaymentInternal(
-            manager.getSender(),
-            toNano("0.5"),
-            0n
-        );
-
-        // TODO (need to advance blockchain time)
-    });
-
     it("op::deactivate", async () => {
+        expect(await subscription.getIsActivated()).toBeTruthy();
         const deactivateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
             seqno: await owner.getSeqno(),
             walletId: owner.walletId,
@@ -152,9 +153,9 @@ describe("Subscription", () => {
         const signature = sign(deactivateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
 
 
-        await owner.send(
+        console.log(await owner.send(
             Subscription.createWalletExtMsgBody(signature, deactivateSubscriptionBody)
-        );
+        ));
 
         expect(await subscription.getIsActivated()).toBeFalsy();
         expect(await subscription.getIsFulfilled()).toBeFalsy();
@@ -185,6 +186,24 @@ describe("Subscription", () => {
 
         expect(await subscription.getIsActivated()).toBeTruthy();
         expect(await subscription.getIsFulfilled()).toBeTruthy();
+    });
+
+    it("op::deactivate again", async () => {
+        expect(await subscription.getIsActivated()).toBeTruthy();
+        const deactivateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
+            seqno: await owner.getSeqno(),
+            walletId: owner.walletId,
+        }) as Builder;
+
+        const signature = sign(deactivateSubscriptionBody.endCell().hash(), ownerKeyPair.secretKey);
+
+
+        await owner.send(
+            Subscription.createWalletExtMsgBody(signature, deactivateSubscriptionBody)
+        );
+
+        expect(await subscription.getIsActivated()).toBeFalsy();
+        expect(await subscription.getIsFulfilled()).toBeFalsy();
     });
 
     it("op::update_authority", async () => {

@@ -4,7 +4,7 @@ import { compile, NetworkProvider } from '@ton-community/blueprint';
 
 export async function run(provider: NetworkProvider) {
     const subscriptionMaster = provider.open(SubscriptionMaster.createFromConfig(
-        0n,
+        1n,
         await compile('SubscriptionMaster')
     ));
 

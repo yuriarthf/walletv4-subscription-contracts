@@ -1,8 +1,9 @@
 import { mnemonicToPrivateKey, sign } from 'ton-crypto';
-import { WalletContractV4, Builder, Address, TupleBuilder } from "ton";
+import { WalletContractV4 } from "ton";
 import { SubscriptionMaster } from '../wrappers/SubscriptionMaster';
 import { Subscription } from '../wrappers/Subscription';
 import { compile, NetworkProvider, sleep } from '@ton-community/blueprint';
+import 'dotenv/config';
 
 export async function run(provider: NetworkProvider, args: string[]) {
     const mnemonic = process.env.WALLET_MNEMONIC ?? (args.length > 0 ? args[0] : undefined);
@@ -19,9 +20,6 @@ export async function run(provider: NetworkProvider, args: string[]) {
         await subscriptionMaster.getUserSubscription(userWalletAddress)
     ));
 
-    if (!(await subscription.getIsActivated()))
-        throw new Error("Subscription is already deactivated")
-
     console.log("Subscription Address: " + subscription.address);
 
     const wallet = provider.open(WalletContractV4.create({
@@ -31,22 +29,30 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
     if (!wallet.address.equals(userWalletAddress)) throw new Error("Mnemonic doesn't match.");
 
+    const feeInfo = await subscriptionMaster.getFeeConfig();
+    console.log("Fee to pay: " + feeInfo.activationFee);
+
     const seqno = await wallet.getSeqno();
     console.log("seqno: " + seqno);
 
-    const walletId = wallet.walletId;
-    console.log("Wallet ID: " + walletId);
+    const timeout = BigInt(Math.floor(Date.now() / 1e3) + 72000);
+    console.log('Timeout: ' + timeout);
 
-    const deactivateSubscriptionBody = subscription.createDeactivateSubscriptionExtMsgBody({
-        seqno,
-        walletId,
-    }) as Builder;
+    const subscribeAndActivateExtMsgBody = await subscriptionMaster.getSubscribeAndActivateExtMsgBody(
+        0n,
+        BigInt(wallet.walletId),
+        BigInt(await wallet.getSeqno()),
+        wallet.address,
+    );
 
-    const signature = sign(deactivateSubscriptionBody.endCell().hash(), keyPair.secretKey);
-    
-    await wallet.send(Subscription.createWalletExtMsgBody(signature, deactivateSubscriptionBody));
+    const signature = sign(subscribeAndActivateExtMsgBody.hash(), keyPair.secretKey);
+    console.log('signature: ' + signature.toString('base64'));
 
-    await sleep(15000);
+    await wallet.send(
+        Subscription.createWalletExtMsgBody(signature, subscribeAndActivateExtMsgBody)
+    );
 
-    console.log(await subscription.getIsActivated() ? "Deactivation failed" : "Deactivation successful");
+    await sleep(10000);
+
+    console.log(await subscription.getIsActivated() ? "Activation successful" : "Activation failed");
 }
