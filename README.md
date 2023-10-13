@@ -1,7 +1,7 @@
 ![Static Badge](https://img.shields.io/badge/FunC-1) ![Static Badge](https://img.shields.io/badge/typescript-red)  ![Static Badge](https://img.shields.io/badge/ton--core-0.49.0-blue)
 <h1>📜 Agora Subscription Contracts</h1>
 
-This repository contains the contracts associated with the Agora AI subscription. The Subscription Master contract holds descriptive information about the service (metadata), the manager (can change subscription configuration and request for payments) and other information related to the fees requested by the service. The Subscription contract serves as a payment between the service creator and the user wallet.
+This repository contains the contracts associated with the Agora AI subscription. The Subscription Master contract holds descriptive information about the service (metadata), the manager (can change subscription configuration and request for payments) and other information related to the fees requested by the service. The Subscription contract serves as a payment medium between the service creator and the user wallet.
 
 ### Main technical features
 
